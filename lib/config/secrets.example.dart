@@ -4,6 +4,7 @@
 /// 1. Copiar este archivo como 'secrets.dart' en el mismo directorio
 /// 2. Reemplazar los valores con tus API keys reales
 /// 3. NUNCA commitear secrets.dart a git (ya está en .gitignore)
+library;
 
 class Secrets {
   /// API key de ElevenLabs para STT/TTS

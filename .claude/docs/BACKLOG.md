@@ -68,7 +68,7 @@ Para poder desarrollar las funcionalidades del MVP de forma eficiente y mantenib
 #### Estatus
 - [ ] Por hacer
 - [ ] En desarrollo
-- [ ] En pruebas
+- [x] En pruebas
 - [ ] Listo
 
 ---
