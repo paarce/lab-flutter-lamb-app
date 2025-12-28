@@ -107,6 +107,7 @@ firebase.json
 
 # Claude Code settings (local overrides only)
 .claude/settings.local.json
+.claude/docs/SETUP_COMPLETADO.md
 
 # Testing
 coverage/
