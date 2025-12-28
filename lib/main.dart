@@ -38,14 +38,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // MultiProvider para gestionar el estado global
-    // Por ahora vacío, se agregarán providers en siguientes funcionalidades
-    return MultiProvider(
-      providers: const [
-        // Ejemplo: ChangeNotifierProvider(create: (_) => VoiceCommandProvider()),
-        // Se agregarán providers según las funcionalidades
-      ],
-      child: MaterialApp(
+    // TODO: Agregar MultiProvider cuando haya providers
+    // Por ahora usamos MaterialApp directamente
+    // Ejemplo futuro:
+    // return MultiProvider(
+    //   providers: [
+    //     ChangeNotifierProvider(create: (_) => VoiceCommandProvider()),
+    //   ],
+    //   child: MaterialApp(...),
+    // );
+
+    return MaterialApp(
         title: 'Asistente de Accesibilidad',
         debugShowCheckedModeBanner: false,
 
@@ -69,8 +72,7 @@ class MyApp extends StatelessWidget {
             child: child!,
           );
         },
-      ),
-    );
+      );
   }
 
   /// Construye un tema accesible según las reglas de WCAG 2.1 AA

@@ -46,6 +46,324 @@ flutter run
 flutter build apk --release
 ```
 
+---
+
+## 🖥️ Ejecutar en Emulador Android
+
+### Paso 1: Verificar Instalación de Android SDK
+
+```bash
+# Verificar que Android SDK esté instalado
+flutter doctor -v
+```
+
+**Esperado:**
+```
+[✓] Android toolchain - develop for Android devices (Android SDK version X.X.X)
+```
+
+**Si falta Android SDK:**
+- Descarga [Android Studio](https://developer.android.com/studio)
+- Durante la instalación, asegúrate de instalar Android SDK
+
+### Paso 2: Crear un Emulador Android (si no tienes uno)
+
+#### Opción A: Desde Android Studio (Recomendado)
+
+1. Abre Android Studio
+2. Ve a **Tools** → **Device Manager** (o **AVD Manager**)
+3. Haz clic en **Create Device**
+4. Selecciona un dispositivo:
+   - **Recomendado:** Pixel 5 o Pixel 6
+5. Selecciona una imagen del sistema:
+   - **API Level 24+** (Android 7.0+) - Mínimo requerido
+   - **API Level 34** (Android 14) - Recomendado para testing
+   - Descarga la imagen si es necesario
+6. Configura el AVD:
+   - **Nombre:** `Pixel_5_API_34` (o el que prefieras)
+   - **RAM:** 2048 MB mínimo (4096 MB recomendado)
+   - **Storage:** 2048 MB mínimo
+7. Haz clic en **Finish**
+
+#### Opción B: Desde Terminal (Avanzado)
+
+```bash
+# Listar AVDs disponibles
+flutter emulators
+
+# Crear un nuevo emulador (si no tienes ninguno)
+# Primero, listar system images disponibles
+sdkmanager --list | grep system-images
+
+# Descargar una system image (ejemplo: Android 14)
+sdkmanager "system-images;android-34;google_apis;x86_64"
+
+# Crear el AVD
+avdmanager create avd -n Pixel_5_API_34 \
+  -k "system-images;android-34;google_apis;x86_64" \
+  -d "pixel_5"
+```
+
+### Paso 3: Iniciar el Emulador
+
+#### Opción A: Desde Android Studio
+
+1. Abre **Device Manager**
+2. Haz clic en el botón ▶️ junto al emulador que creaste
+
+#### Opción B: Desde Terminal
+
+```bash
+# Listar emuladores disponibles
+flutter emulators
+
+# Iniciar un emulador específico
+flutter emulators --launch Pixel_5_API_34
+
+# O usar el comando de emulator directamente
+emulator -avd Pixel_5_API_34
+```
+
+**Espera a que el emulador arranque completamente** (puede tomar 1-2 minutos la primera vez)
+
+### Paso 4: Verificar que Flutter Detecta el Emulador
+
+```bash
+flutter devices
+```
+
+**Esperado:**
+```
+3 connected devices:
+
+Pixel 5 API 34 (mobile) • emulator-5554 • android-x64 • Android 14 (API 34) (emulator)
+```
+
+### Paso 5: Ejecutar la App en el Emulador
+
+```bash
+# Ejecutar en el emulador detectado
+flutter run
+
+# Si tienes múltiples dispositivos, especifica el emulador
+flutter run -d emulator-5554
+
+# Con hot reload habilitado (por defecto)
+flutter run
+
+# Con análisis de accesibilidad
+flutter run --analyze-accessibility
+```
+
+**Salida esperada:**
+```
+Launching lib/main.dart on Pixel 5 API 34 in debug mode...
+Running Gradle task 'assembleDebug'...
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+Installing build/app/outputs/flutter-apk/app-debug.apk...
+Waiting for Pixel 5 API 34 to report its views...
+Debug service listening on ws://127.0.0.1:xxxxx
+Synced 0.0MB
+```
+
+### Paso 6: Usar la App en el Emulador
+
+Una vez que la app esté ejecutándose:
+
+1. **Interactuar con la app:**
+   - Usa el mouse para simular toques
+   - Los botones tienen áreas táctiles grandes (80dp)
+
+2. **Hot Reload (recarga en caliente):**
+   - Haz cambios en el código
+   - Presiona `r` en la terminal para recargar
+   - O presiona `R` para reiniciar completamente
+
+3. **Ver logs en tiempo real:**
+   ```bash
+   # En otra terminal
+   flutter logs
+   ```
+
+4. **Probar TalkBack (lector de pantalla):**
+   ```bash
+   # Habilitar TalkBack desde el emulador:
+   # Settings → Accessibility → TalkBack → On
+   ```
+
+### Paso 7: Detener la App
+
+```bash
+# Presiona 'q' en la terminal donde está corriendo flutter run
+# O usa Ctrl+C
+```
+
+### 🔧 Troubleshooting
+
+#### El emulador no aparece en `flutter devices`
+
+```bash
+# Verificar que el emulador esté corriendo
+adb devices
+
+# Si no aparece, reinicia adb
+adb kill-server
+adb start-server
+
+# Verifica nuevamente
+flutter devices
+```
+
+#### Error: "Unable to locate adb"
+
+```bash
+# Agrega Android SDK a tu PATH
+# En ~/.zshrc o ~/.bashrc:
+export ANDROID_HOME=$HOME/Library/Android/sdk
+export PATH=$PATH:$ANDROID_HOME/tools
+export PATH=$PATH:$ANDROID_HOME/platform-tools
+
+# Recarga el shell
+source ~/.zshrc  # o source ~/.bashrc
+```
+
+#### El emulador es muy lento
+
+**Soluciones:**
+1. Asegúrate de tener **Intel HAXM** (o **Hypervisor Framework** en Mac M1/M2) instalado
+2. Aumenta la RAM del emulador:
+   - Device Manager → Edit AVD → Show Advanced Settings → RAM: 4096 MB
+3. Habilita aceleración gráfica:
+   - Graphics: **Hardware - GLES 2.0**
+
+#### Error: "Gradle build failed"
+
+```bash
+# Limpiar y reconstruir
+flutter clean
+flutter pub get
+flutter run
+```
+
+#### Error de Firebase: "google-services.json is missing"
+
+```bash
+# Verificar que el archivo esté en el lugar correcto
+ls -la android/app/google-services.json
+
+# Si falta, revisa la sección "Setup Inicial" del README
+```
+
+### 📱 Emuladores Recomendados para Testing
+
+| Emulador | API Level | Uso |
+|----------|-----------|-----|
+| **Pixel 5 - API 34** | Android 14 | Testing de última versión |
+| **Pixel 4 - API 24** | Android 7.0 | Testing de versión mínima |
+| **Pixel Tablet - API 34** | Android 14 | Testing de pantallas grandes |
+
+### 💡 Tips para Desarrollo
+
+**Durante el desarrollo de features:**
+
+```bash
+# 1. Inicia el emulador
+flutter emulators --launch Pixel_5_API_34
+
+# 2. Ejecuta la app con hot reload
+flutter run
+
+# 3. En otra terminal, observa los logs
+flutter logs
+
+# 4. Haz cambios en el código
+# 5. Presiona 'r' para hot reload o 'R' para hot restart
+```
+
+**Atajos de teclado en la terminal de Flutter:**
+
+- `r` - Hot reload (recarga cambios de UI)
+- `R` - Hot restart (reinicia la app completamente)
+- `h` - Mostrar ayuda
+- `q` - Salir
+- `s` - Captura de pantalla
+- `w` - Debug widget hierarchy
+
+### 🔍 Gestión de Procesos de Flutter
+
+#### Verificar si Flutter Run está ejecutándose
+
+```bash
+# Ver todos los procesos de Flutter
+ps aux | grep "flutter run" | grep -v grep
+
+# Solo ver el PID (Process ID)
+pgrep -f "flutter run"
+
+# Ver información detallada
+ps aux | grep flutter | grep -v grep
+```
+
+**Salida si está corriendo:**
+```
+augustoc.p.  12345   0.5  1.2  ... flutter run -d emulator-5554
+```
+
+**Salida si NO está corriendo:** (sin salida)
+
+#### Detener el Proceso de Flutter Run
+
+**Opción 1: Desde la terminal donde está corriendo (Recomendado)**
+
+```bash
+# Presiona la tecla 'q' para salir limpiamente
+q
+```
+
+**Opción 2: Matar el proceso desde otra terminal**
+
+```bash
+# Matar todos los procesos de "flutter run"
+pkill -f "flutter run"
+
+# Verificar que se detuvo
+pgrep -f "flutter run"  # No debe mostrar nada
+```
+
+**Opción 3: Detener todo (Flutter + App en emulador)**
+
+```bash
+# Detener flutter run
+pkill -f "flutter run"
+
+# Detener la app en el emulador
+adb shell am force-stop com.accessibilityapp.lamb
+
+# Verificar que la app se cerró
+adb shell "pm list packages | grep lamb"
+```
+
+#### Comandos Adicionales Útiles
+
+```bash
+# Ver logs de la app (aunque Flutter run no esté corriendo)
+adb logcat -s flutter:I ActivityManager:I
+
+# Filtrar solo logs de tu app
+adb logcat | grep "com.accessibilityapp.lamb"
+
+# Desinstalar la app del emulador
+adb uninstall com.accessibilityapp.lamb
+
+# Reiniciar el emulador
+adb reboot
+
+# Cerrar completamente el emulador
+adb emu kill
+```
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```
