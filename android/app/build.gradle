@@ -1,0 +1,60 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.accessibilityapp.lamb"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        // Application ID para la app de accesibilidad
+        applicationId = "com.accessibilityapp.lamb"
+
+        // Android 7.0 Nougat (API 24) - Versión mínima requerida
+        minSdk = 24
+
+        // Android 14 (API 34) - Versión objetivo
+        targetSdk = 34
+
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+
+        // Habilitar multidex (necesario para Firebase)
+        multiDexEnabled = true
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+// Agregar dependencias necesarias para la app
+dependencies {
+    // Multidex para Firebase
+    implementation 'androidx.multidex:multidex:2.0.1'
+}
+
+// Google Services (debe estar al final del archivo)
+// Se necesita tener google-services.json en android/app/
+apply plugin: 'com.google.gms.google-services'

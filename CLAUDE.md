@@ -7,6 +7,15 @@
 **Plazo:** 3 meses
 **Plataformas:** Android (prioridad), iOS v2.0 (funcionalidad limitada)
 
+### Estado Actual del Proyecto
+
+**Versión:** 1.0.0 - Setup inicial completado ✅
+
+El proyecto está en su fase inicial con la infraestructura base configurada y lista para el desarrollo de funcionalidades del MVP. La app compila correctamente, Firebase está integrado, y el tema accesible cumple con estándares WCAG 2.1 AA.
+
+**Historial de cambios:** Ver [CHANGELOG.md](./CHANGELOG.md) para detalles de implementación.
+**Próximas funcionalidades:** Ver [BACKLOG.md](./.claude/docs/BACKLOG.md)
+
 ### Funcionalidades Core
 1. Control remoto de pantalla (soporte familiar vía WebRTC)
 2. Comandos de voz para automatización de WhatsApp
@@ -33,53 +42,103 @@
 
 ### Dependencias Flutter
 ```yaml
-flutter_accessibility_service: ^3.0.0
-flutter_webrtc: ^0.9.48
+# State Management
 provider: ^6.1.1
+
+# Firebase
+firebase_core: ^2.24.2
+cloud_firestore: ^4.13.6
+firebase_messaging: ^14.7.9
+
+# Features
+flutter_webrtc: ^0.9.48
+flutter_accessibility_service: ^1.0.0  # Nota: v3.0.0 no existe en pub.dev
+permission_handler: ^11.1.0
+
+# Networking
 http: ^1.1.0
 dio: ^5.4.0
 web_socket_channel: ^2.4.0
+
+# Storage
 hive: ^2.2.3
-permission_handler: ^11.1.0
+hive_flutter: ^1.1.0
 ```
 
 ---
 
 ## Estructura del Proyecto
 
+**Nota:** Esta estructura incluye archivos implementados (✅) y plantillas futuras (🔜).
+
 ```
 lib/
-├── main.dart
+├── main.dart                             ✅ Implementado
 ├── config/
-│   └── secrets.dart                  # API keys (gitignored)
+│   ├── secrets.dart                      ✅ Implementado (gitignored)
+│   └── secrets.example.dart              ✅ Implementado
 ├── screens/
-│   ├── home_screen.dart
-│   ├── voice_command_screen.dart
-│   ├── whatsapp_screen.dart
-│   └── remote_control_screen.dart
-├── services/
-│   ├── elevenlabs_service.dart       # STT/TTS
-│   ├── whatsapp_service.dart         # Platform Channel → Kotlin
-│   ├── webrtc_service.dart           # Control remoto
-│   └── preferences_service.dart
-├── providers/
-│   ├── voice_command_provider.dart
-│   ├── whatsapp_provider.dart
-│   └── remote_control_provider.dart
-├── models/
-│   ├── command.dart
-│   ├── whatsapp_action.dart
-│   └── remote_session.dart
-└── utils/
-    ├── nlp_parser.dart
-    └── constants.dart
+│   ├── home_screen.dart                  ✅ Implementado
+│   ├── voice_command_screen.dart         🔜 Próxima funcionalidad
+│   ├── whatsapp_screen.dart              🔜 Próxima funcionalidad
+│   └── remote_control_screen.dart        🔜 Próxima funcionalidad
+├── services/                             🔜 Carpeta lista
+│   ├── elevenlabs_service.dart           🔜 STT/TTS
+│   ├── whatsapp_service.dart             🔜 Platform Channel → Kotlin
+│   ├── webrtc_service.dart               🔜 Control remoto
+│   └── preferences_service.dart          🔜 Preferencias
+├── providers/                            🔜 Carpeta lista
+│   ├── voice_command_provider.dart       🔜 State management comandos
+│   ├── whatsapp_provider.dart            🔜 State management WhatsApp
+│   └── remote_control_provider.dart      🔜 State management control remoto
+├── models/                               🔜 Carpeta lista
+│   ├── command.dart                      🔜 Modelo de comandos
+│   ├── whatsapp_action.dart              🔜 Modelo de acciones WhatsApp
+│   └── remote_session.dart               🔜 Modelo de sesiones remotas
+└── utils/                                🔜 Carpeta lista
+    ├── nlp_parser.dart                   🔜 Parser de lenguaje natural
+    └── constants.dart                    🔜 Constantes globales
 
 android/app/src/main/kotlin/
-├── MainActivity.kt
-├── AssistantAccessibilityService.kt
-├── WhatsAppAutomation.kt
-└── NotificationListener.kt
+├── MainActivity.kt                       ✅ Implementado (básico)
+├── AssistantAccessibilityService.kt      🔜 Servicio de accesibilidad
+├── WhatsAppAutomation.kt                 🔜 Automatización WhatsApp
+└── NotificationListener.kt               🔜 Listener de notificaciones
 ```
+
+---
+
+## Documentación del Proyecto
+
+### Archivos de Referencia
+
+- **[CLAUDE.md](./CLAUDE.md)** (este archivo) - Guía de referencia técnica del proyecto
+- **[README.md](./README.md)** - Guía de desarrollo y setup
+  - Setup inicial completo
+  - Ejecución en emulador Android
+  - Gestión de procesos Flutter
+  - Troubleshooting común
+- **[CHANGELOG.md](./CHANGELOG.md)** - Historial de cambios del proyecto
+- **[ARQUITECTURA_APP_ACCESIBILIDAD.md](./ARQUITECTURA_APP_ACCESIBILIDAD.md)** - Análisis técnico de decisiones de arquitectura
+
+### Documentación Interna (.claude/docs/)
+
+- **BACKLOG.md** - Tareas pendientes del proyecto
+- **ROADMAP.md** - Hoja de ruta del desarrollo
+- **SETUP_COMPLETADO.md** - Confirmación de setup inicial (gitignored, solo local)
+
+### Reglas de Desarrollo (.claude/rules/)
+
+- **accessibility.md** - Reglas de accesibilidad (WCAG 2.1 AA)
+- **platform-channels.md** - Guía de Platform Channels Flutter ↔ Kotlin
+- **whatsapp-automation.md** - Reglas para automatización WhatsApp
+
+### Skills de Claude Code (.claude/skills/)
+
+- **accessibility/** - Guía de TalkBack y diseño inclusivo
+- **platform-channels/** - Guía de implementación de platform channels
+- **debugging/** - Debugging específico de Flutter/Android
+- **development/** - Workflow de desarrollo general
 
 ---
 
@@ -273,6 +332,6 @@ NO recopilamos datos. Todo es local.
 
 ---
 
-**Versión:** 2.0
-**Última actualización:** 24 dic 2025
-**Stack:** Flutter + WebRTC + ElevenLabs
+**Versión:** 1.0.0
+**Última actualización:** 27 dic 2025
+**Stack:** Flutter + Firebase + WebRTC + ElevenLabs
