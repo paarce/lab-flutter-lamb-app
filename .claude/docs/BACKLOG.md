@@ -666,10 +666,349 @@ Estas funcionalidades están fuera del MVP pero documentadas para v1.0 (Semanas 
 
 ---
 
+## FUNCIONALIDAD 2.1: Cliente WebRTC para Control Remoto (App del Familiar)
+
+### Fecha de planeación: 08 Enero 2026
+### Prioridad: **P0 (Crítica - Requerida para completar MVP)**
+### Estatus: Por iniciar
+
+---
+
+### Contexto
+
+Durante las pruebas de la Funcionalidad 2 (TC-HP-001 a TC-HP-008), se validó exitosamente el lado del **host/servidor** (adulto mayor). Sin embargo, **no es posible probar la conexión WebRTC completa** sin el lado del **cliente** (familiar que se conecta).
+
+La Funcionalidad 2.1 es **fundamental para el MVP** porque:
+- ✅ Sin cliente, no podemos validar que WebRTC funciona end-to-end
+- ✅ No podemos probar estados críticos: `connecting`, `connected`
+- ✅ No podemos validar la transmisión de pantalla real
+- ✅ No podemos probar el control táctil remoto
+- ✅ No hay forma de hacer pruebas completas con usuarios reales
+
+**Decisión:** Priorizar desarrollo del cliente inmediatamente después de validar el host.
+
+---
+
+### Historia de Usuario
+
+```
+Como familiar de una persona con baja visión
+Quiero conectarme al dispositivo de mi familiar ingresando un código de 6 dígitos
+Para poder ver su pantalla en tiempo real y ayudarle tocando elementos que él necesita activar
+```
+
+---
+
+### Alcance del Cliente MVP
+
+#### **Plataforma Inicial: Web App (PWA)**
+**Justificación:**
+- ✅ Desarrollo más rápido que app nativa (1 semana vs 2-3 semanas)
+- ✅ No requiere instalación (el familiar solo abre un link)
+- ✅ Funciona en cualquier dispositivo (Android, iOS, PC, Mac)
+- ✅ Usa `flutter_webrtc` que ya soporta web
+- ✅ Permite testing inmediato sin compilaciones
+
+**Plan futuro:** App nativa Android/iOS en v2.2 (post-MVP)
+
+---
+
+### Criterios de Aceptación Funcional
+
+#### **Pantalla 1: Ingresar Código de Sesión**
+- [ ] Input numérico para código de 6 dígitos
+- [ ] Botón "Conectar" grande y visible
+- [ ] Validación: solo acepta 6 dígitos numéricos (2-9, sin 0/1)
+- [ ] Mensaje de error claro si código inválido
+- [ ] Loading indicator mientras se conecta
+
+#### **Pantalla 2: Visualización de Pantalla Remota**
+- [ ] Stream de video de la pantalla del adulto mayor se muestra en tiempo real
+- [ ] Video ocupa toda la pantalla (fullscreen) o es maximizable
+- [ ] Latencia < 2 segundos en WiFi
+- [ ] Controles de sesión visibles: "Desconectar", "Pantalla completa"
+- [ ] Indicador de estado de conexión: "Conectando...", "Conectado", "Desconectado"
+
+#### **Funcionalidad de Control Táctil (MVP Básico)**
+- [ ] Al tocar en la pantalla del cliente, se simula un tap en el dispositivo del host
+- [ ] Coordenadas se escalan correctamente (resolución cliente → resolución host)
+- [ ] Feedback visual: círculo temporal donde se tocó
+- [ ] **Limitación MVP:** Solo taps simples (no gestos complejos, no scroll, no pinch-to-zoom)
+
+#### **Manejo de Desconexión**
+- [ ] Si host termina la sesión, cliente recibe notificación y vuelve a pantalla inicial
+- [ ] Si conexión se pierde, muestra mensaje: "Conexión perdida. Reconectando..."
+- [ ] Intenta reconectar automáticamente 3 veces antes de fallar
+- [ ] Botón "Volver a intentar" si reconexión falla
+
+---
+
+### Criterios de Aceptación Técnico
+
+#### **Stack Técnico**
+- [ ] **Frontend:** Flutter Web (compile con `flutter build web`)
+- [ ] **WebRTC:** `flutter_webrtc` v0.9.48+ (mismo que host)
+- [ ] **Signaling:** Firebase Firestore (mismo backend que host)
+- [ ] **Hosting:** Firebase Hosting (deploy con `firebase deploy`)
+- [ ] **URL:** `https://lamb-remote.web.app` o similar
+
+#### **Arquitectura**
+```
+lib/
+├── main_web.dart                    # Entry point para web
+├── screens/
+│   ├── client_connect_screen.dart   # Pantalla 1: Ingresar código
+│   └── client_viewer_screen.dart    # Pantalla 2: Ver pantalla remota
+├── services/
+│   └── webrtc_client_service.dart   # Cliente WebRTC
+└── providers/
+    └── remote_viewer_provider.dart  # State management del cliente
+```
+
+#### **Flujo de Conexión WebRTC**
+
+**Cliente:**
+1. Usuario ingresa código de 6 dígitos
+2. Cliente busca sesión en Firestore: `remote_sessions/{sessionCode}`
+3. Si existe y `status == 'waiting'`, obtiene el `offer` SDP del host
+4. Cliente crea `RTCPeerConnection`
+5. Cliente setea el `offer` como remote description
+6. Cliente crea `answer` SDP
+7. Cliente guarda `answer` en Firestore: `remote_sessions/{sessionCode}/answer`
+8. Cliente escucha ICE candidates del host y los agrega
+9. WebRTC establece conexión P2P
+10. Cliente recibe el stream de video y lo renderiza
+
+**Signaling (Firestore):**
+```
+remote_sessions/{sessionCode}/
+  ├── offer: String (SDP del host)
+  ├── answer: String (SDP del cliente)
+  ├── status: 'waiting' | 'connecting' | 'connected' | 'ended'
+  ├── hostIceCandidates: Array<IceCandidate>
+  ├── clientIceCandidates: Array<IceCandidate>
+  └── lastActivity: Timestamp
+```
+
+#### **Comunicación de Control Táctil**
+
+**Canal de datos WebRTC:**
+```dart
+// Host crea data channel
+RTCDataChannel dataChannel = await peerConnection.createDataChannel(
+  'control',
+  RTCDataChannelInit(),
+);
+
+// Cliente envía eventos táctiles
+dataChannel.send(json.encode({
+  'type': 'tap',
+  'x': normalizedX,  // 0.0 - 1.0
+  'y': normalizedY,  // 0.0 - 1.0
+  'timestamp': DateTime.now().millisecondsSinceEpoch,
+}));
+```
+
+**Host recibe y ejecuta:**
+- Escala coordenadas normalizadas a píxeles de pantalla del host
+- Usa `AccessibilityService.simulateTap()` (Kotlin) para simular el tap
+
+---
+
+### Casos de Uso Críticos (Testing)
+
+#### **TC-CLIENT-001: Conectar con código válido (P0)**
+**Pasos:**
+1. Host inicia sesión remota (código: 234567)
+2. Cliente abre web app
+3. Cliente ingresa: 234567
+4. Cliente presiona "Conectar"
+
+**Resultado esperado:**
+- ✅ Cliente muestra "Conectando..."
+- ✅ En 5-10 segundos, aparece pantalla del host
+- ✅ Host ve estado cambiar a "Conectado"
+- ✅ Cliente puede ver la pantalla en tiempo real
+
+#### **TC-CLIENT-002: Código inválido (P0)**
+**Pasos:**
+1. Cliente ingresa código que no existe: 999999
+2. Cliente presiona "Conectar"
+
+**Resultado esperado:**
+- ✅ Mensaje de error: "Código de sesión no encontrado o expirado"
+- ✅ Vuelve a pantalla de ingreso de código
+
+#### **TC-CLIENT-003: Control táctil básico (P0)**
+**Pasos:**
+1. Cliente conectado exitosamente
+2. Cliente toca en el botón "WhatsApp" visible en la pantalla del host
+3. Observar dispositivo del host
+
+**Resultado esperado:**
+- ✅ En el host, el botón "WhatsApp" se presiona (animación de tap)
+- ✅ Acción correspondiente se ejecuta (ej: abre WhatsApp)
+- ✅ Feedback visual en cliente: círculo breve donde se tocó
+
+#### **TC-CLIENT-004: Desconexión del host (P1)**
+**Pasos:**
+1. Cliente conectado
+2. Host presiona "Terminar Sesión"
+
+**Resultado esperado:**
+- ✅ Video desaparece en cliente
+- ✅ Mensaje: "El host terminó la sesión"
+- ✅ Botón "Volver" para regresar a pantalla inicial
+
+---
+
+### Estimación de Esfuerzo
+
+| Tarea | Esfuerzo | Prioridad |
+|-------|----------|-----------|
+| Setup Flutter Web + Firebase Hosting | 2-3 horas | P0 |
+| Pantalla de ingreso de código | 3-4 horas | P0 |
+| WebRTC Client Service (conexión) | 6-8 horas | P0 |
+| Pantalla de visualización de stream | 4-5 horas | P0 |
+| Data channel para control táctil | 5-6 horas | P0 |
+| Host: Recibir y ejecutar taps remotos | 4-5 horas | P0 |
+| Manejo de errores y reconexión | 3-4 horas | P0 |
+| Testing end-to-end | 4-5 horas | P0 |
+| **TOTAL** | **31-40 horas** | **~1 semana** |
+
+---
+
+### Dependencias
+
+**Ya completado:**
+- ✅ Host (servidor) implementado y funcionando
+- ✅ Firebase Firestore configurado
+- ✅ Signaling con `offer` ya funciona
+
+**Pendiente:**
+- [ ] `AccessibilityService` en host debe soportar taps remotos
+- [ ] Firebase Hosting configurado para web app
+- [ ] Permisos de Firestore ajustados para permitir escritura de cliente
+
+---
+
+### Estatus
+
+- [x] Identificado como bloqueante para MVP (08 ene 2026)
+- [x] Especificación técnica completada
+- [ ] Aprobado para desarrollo
+- [ ] En desarrollo
+- [ ] En testing (TC-CLIENT-001 a TC-CLIENT-004)
+- [ ] Listo para MVP
+
+---
+
+## MEJORAS POST-MVP (Funcionalidad 2.2 - Enhancements)
+
+### Prioridad: P1-P2 (Alta, pero no bloqueante para MVP)
+
+---
+
+### MEJORA 2.2.1: Botón para Repetir Código de Sesión en Altavoz
+
+#### Historia de Usuario
+```
+Como adulto mayor usando la app
+Quiero poder repetir el código de sesión en altavoz cuando lo necesite
+Para poder compartirlo con mi familiar sin tener que leerlo visualmente en la pantalla
+```
+
+#### Contexto
+Durante las pruebas del TC-HP-004, se identificó que aunque el código se anuncia automáticamente al inicio, sería útil poder repetirlo bajo demanda, especialmente en casos donde:
+- El usuario no escuchó el código la primera vez
+- El familiar llegó tarde y no estaba presente cuando se anunció
+- El usuario necesita confirmar el código nuevamente
+
+#### Criterios de Aceptación Funcional
+- [ ] Existe un botón "Repetir código" visible en la pantalla de sesión activa
+- [ ] El botón tiene un ícono de altavoz/volumen para identificación rápida
+- [ ] Al presionar el botón, el TTS anuncia: "Código de sesión: X, X, X, X, X, X" (cada dígito separado)
+- [ ] El botón tiene tamaño mínimo de 80dp de altura (estándar de accesibilidad)
+- [ ] El botón funciona con TalkBack activado
+- [ ] Semantic label: "Repetir código de sesión en altavoz, Botón, Toca dos veces para escuchar el código nuevamente"
+
+#### Criterios de Aceptación Técnico
+- [ ] Botón implementado usando `AccessibleButton` widget existente
+- [ ] Usa `ElevenLabsService.speak()` para reproducir el código
+- [ ] El mensaje del TTS es el mismo que el anuncio inicial (consistencia)
+- [ ] El botón se deshabilita temporalmente mientras reproduce el audio (evita spam)
+- [ ] Se agrega a `RemoteControlHostScreen` debajo del widget `SessionCodeDisplay`
+
+#### UI/UX
+**Ubicación:** Entre el `SessionCodeDisplay` y las instrucciones "Comparte este código..."
+
+**Diseño:**
+```
+┌─────────────────────────────────────┐
+│   SessionCodeDisplay (código)       │
+└─────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────┐
+│  🔊 Repetir código en altavoz       │  ← NUEVO BOTÓN
+└─────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────┐
+│   Card: "Comparte este código..."   │
+└─────────────────────────────────────┘
+```
+
+#### Edge Cases y Manejo de Errores
+- ¿Qué pasa si el usuario presiona el botón mientras ya está reproduciendo?
+  - Botón se deshabilita visualmente y no hace nada
+  - TalkBack anuncia: "Esperando que termine el audio actual"
+- ¿Qué pasa si ElevenLabs falla?
+  - Botón sigue funcionando, pero no reproduce audio (fallo silencioso)
+  - Se loggea el error en consola
+  - NO se muestra error al usuario (no es crítico)
+- ¿Qué pasa si el usuario tiene el volumen multimedia en 0?
+  - Se reproduce de todas formas (responsabilidad del usuario ajustar volumen)
+  - Considerar agregar indicador visual de "reproduciendo..." para feedback
+
+#### Estimación de Esfuerzo
+- **Desarrollo:** 2-3 horas
+- **Testing:** 1 hora (TC-ACC-006 y casos nuevos)
+- **Total:** 3-4 horas
+
+#### Dependencias
+- ✅ ElevenLabsService ya implementado y funcionando
+- ✅ AccessibleButton widget existente
+- ✅ RemoteControlHostScreen estructura ya definida
+
+#### Estatus
+- [x] Identificado durante testing (TC-HP-004)
+- [ ] Diseñado (especificación completa)
+- [ ] En desarrollo
+- [ ] En pruebas
+- [ ] Listo para producción
+
+---
+
+### Otras Mejoras Planeadas para 2.1
+
+#### MEJORA 2.1.2: Ajuste de Volumen de TTS (Prioridad: P2)
+- Agregar slider de volumen específico para TTS en settings
+- Permitir probar el volumen con audio de ejemplo
+
+#### MEJORA 2.1.3: Selección de Voz (Prioridad: P2)
+- Permitir elegir entre voz masculina/femenina
+- Agregar opción de velocidad de habla (lenta/normal/rápida)
+
+#### MEJORA 2.1.4: Historial de Sesiones (Prioridad: P3)
+- Mostrar últimas 5 sesiones remotas con fecha/hora
+- Útil para auditoría y confianza del usuario
+
+---
+
 ## REGISTRO DE CAMBIOS
 
 | Fecha | Versión | Cambios |
 |-------|---------|---------|
+| 08 ene 2026 | 1.1 | Agregada sección "Mejoras Post-MVP" con mejora 2.1.1 (Repetir código en altavoz) |
 | 24 dic 2025 | 1.0 | Backlog inicial creado basado en ROADMAP v1.1 y ARQUITECTURA v2.0 |
 
 ---

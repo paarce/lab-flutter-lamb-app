@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../models/remote_session.dart';
@@ -23,6 +25,9 @@ class WebRTCService {
   /// Local video stream (screen capture)
   MediaStream? _localStream;
 
+  /// Data channel for receiving touch events from client
+  RTCDataChannel? _controlDataChannel;
+
   /// Session code for the current connection
   String? _currentSessionCode;
 
@@ -38,6 +43,10 @@ class WebRTCService {
   RTCPeerConnectionState? _connectionState;
 
   RTCPeerConnectionState? get connectionState => _connectionState;
+
+  /// Platform channel for native Android functionality
+  static const _platform =
+      MethodChannel('com.accessibilityapp/foreground_service');
 
   WebRTCService({required FirebaseSignalingService signalingService})
       : _signalingService = signalingService;
@@ -101,6 +110,11 @@ class WebRTCService {
       print('🟢 [WebRTCService] INIT: Step 2 - Creating local screen track...');
       await _createLocalScreenTrack();
       print('🟢 [WebRTCService] INIT: Step 2 - Local screen track created');
+
+      // Create data channel for touch control
+      print('🟢 [WebRTCService] INIT: Step 2.5 - Creating data channel for touch control...');
+      await _createDataChannel();
+      print('🟢 [WebRTCService] INIT: Step 2.5 - Data channel created');
 
       // Setup signaling listeners (for answer and ICE candidates from client)
       print('🟢 [WebRTCService] INIT: Step 3 - Setting up signaling listeners...');
@@ -186,6 +200,149 @@ class WebRTCService {
     } catch (e) {
       print('🔴 [WebRTCService] _createLocalScreenTrack: Failed - $e');
       throw Exception('Failed to create screen track: $e');
+    }
+  }
+
+  /// Creates data channel for receiving touch control events from client
+  Future<void> _createDataChannel() async {
+    try {
+      print('🟢 [WebRTCService] _createDataChannel: Creating data channel...');
+
+      // Create data channel configuration
+      final dataChannelInit = RTCDataChannelInit()
+        ..id = 1
+        ..ordered = true
+        ..maxRetransmitTime = -1
+        ..maxRetransmits = -1
+        ..protocol = 'sctp'
+        ..negotiated = false;
+
+      _controlDataChannel = await _peerConnection!.createDataChannel(
+        'control',
+        dataChannelInit,
+      );
+
+      // Setup data channel event listeners
+      _controlDataChannel!.onMessage = (RTCDataChannelMessage message) {
+        _onDataChannelMessage(message);
+      };
+
+      _controlDataChannel!.stateChangeStream.listen((state) {
+        print('🟢 [WebRTCService] Data channel state: $state');
+      });
+
+      print('✅ [WebRTCService] _createDataChannel: Data channel created');
+
+      developer.log(
+        'Data channel created',
+        name: 'WebRTCService',
+      );
+    } catch (e) {
+      print('🔴 [WebRTCService] _createDataChannel: Failed - $e');
+      // Don't throw - data channel is optional feature
+      developer.log(
+        'Failed to create data channel (non-critical)',
+        name: 'WebRTCService',
+        error: e,
+      );
+    }
+  }
+
+  /// Handles incoming messages on data channel
+  void _onDataChannelMessage(RTCDataChannelMessage message) {
+    try {
+      print('🟢 [WebRTCService] _onDataChannelMessage: Received message');
+
+      final data = json.decode(message.text);
+      print('🟢 [WebRTCService] _onDataChannelMessage: Message type: ${data['type']}');
+
+      if (data['type'] == 'tap') {
+        final x = data['x'] as double;
+        final y = data['y'] as double;
+        print('🟢 [WebRTCService] _onDataChannelMessage: Touch at ($x, $y)');
+
+        _handleRemoteTap(x, y);
+      }
+    } catch (e) {
+      developer.log(
+        'Failed to handle data channel message',
+        name: 'WebRTCService',
+        error: e,
+      );
+    }
+  }
+
+  /// Handles remote tap event from client
+  ///
+  /// Converts normalized coordinates to pixel coordinates and
+  /// simulates tap via AccessibilityService
+  Future<void> _handleRemoteTap(double normalizedX, double normalizedY) async {
+    try {
+      print('🟢 [WebRTCService] _handleRemoteTap: Processing tap at ($normalizedX, $normalizedY)');
+
+      // TODO: Get actual screen dimensions from MediaProjection
+      // For now, using common Android resolutions
+      // This should be obtained dynamically in production
+      const screenWidth = 1080.0; // HD resolution width
+      const screenHeight = 2340.0; // Common 19.5:9 aspect ratio
+
+      // Convert normalized coordinates to pixel coordinates
+      final pixelX = (normalizedX * screenWidth).toInt();
+      final pixelY = (normalizedY * screenHeight).toInt();
+
+      print('🟢 [WebRTCService] _handleRemoteTap: Pixel coordinates: ($pixelX, $pixelY)');
+
+      // Call Platform Channel to simulate tap
+      await _simulateTap(pixelX.toDouble(), pixelY.toDouble());
+
+      developer.log(
+        'Remote tap: normalized=($normalizedX, $normalizedY), pixels=($pixelX, $pixelY)',
+        name: 'WebRTCService',
+      );
+    } catch (e) {
+      developer.log(
+        'Failed to handle remote tap',
+        name: 'WebRTCService',
+        error: e,
+      );
+    }
+  }
+
+  /// Simulates a tap at the given pixel coordinates via Platform Channel
+  ///
+  /// Calls the native Android MainActivity to perform the tap using
+  /// AccessibilityService
+  Future<void> _simulateTap(double x, double y) async {
+    try {
+      print('🟢 [WebRTCService] _simulateTap: Calling platform channel with ($x, $y)');
+
+      await _platform.invokeMethod('simulateTap', {
+        'x': x,
+        'y': y,
+      });
+
+      print('✅ [WebRTCService] _simulateTap: Platform channel call successful');
+
+      developer.log(
+        'Tap simulated at ($x, $y)',
+        name: 'WebRTCService',
+      );
+    } on PlatformException catch (e) {
+      print('🔴 [WebRTCService] _simulateTap: Platform exception: ${e.code} - ${e.message}');
+
+      developer.log(
+        'Failed to simulate tap via platform channel',
+        name: 'WebRTCService',
+        error: e,
+      );
+    } catch (e) {
+      print('🔴 [WebRTCService] _simulateTap: Unexpected error: $e');
+
+      developer.log(
+        'Unexpected error simulating tap',
+        name: 'WebRTCService',
+        error: e,
+      );
     }
   }
 
@@ -412,6 +569,10 @@ class WebRTCService {
         'Disposing WebRTC service',
         name: 'WebRTCService',
       );
+
+      // Close data channel
+      _controlDataChannel?.close();
+      _controlDataChannel = null;
 
       // Close peer connection
       await _peerConnection?.close();

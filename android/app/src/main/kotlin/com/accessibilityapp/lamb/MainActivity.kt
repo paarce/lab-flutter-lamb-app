@@ -60,6 +60,44 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "simulateTap" -> {
+                    try {
+                        val x = call.argument<Double>("x")
+                        val y = call.argument<Double>("y")
+
+                        if (x == null || y == null) {
+                            result.error(
+                                "INVALID_ARGUMENT",
+                                "Missing x or y coordinates",
+                                null
+                            )
+                            return@setMethodCallHandler
+                        }
+
+                        Log.d(TAG, "Simulate tap requested at: ($x, $y)")
+
+                        // TODO: Implement tap simulation via AccessibilityService
+                        // This requires:
+                        // 1. AssistantAccessibilityService implementation
+                        // 2. Accessibility permission granted by user
+                        // 3. Global gesture dispatch capability
+                        //
+                        // For now, just log the request
+                        Log.w(TAG, "Tap simulation not yet implemented - AccessibilityService required")
+                        Log.w(TAG, "This will be implemented in future WhatsApp automation feature")
+
+                        // Return success for now (architecture is ready)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to simulate tap", e)
+                        result.error(
+                            "TAP_SIMULATION_FAILED",
+                            "Failed to simulate tap: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
                 else -> {
                     result.notImplemented()
                 }

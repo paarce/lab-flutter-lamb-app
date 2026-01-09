@@ -39,8 +39,8 @@ dependencies:
   provider: ^6.1.1
 
   # WebRTC para control remoto
-  # Versión 0.9.48 estable - funciona con targetSdk 33 (Android 13)
-  flutter_webrtc: ^0.9.48
+  # Versión 0.11.7 - compatible con Android y Web moderna
+  flutter_webrtc: ^0.11.7
 
   # AccessibilityService para automatización WhatsApp
   flutter_accessibility_service: ^1.0.0
@@ -63,9 +63,9 @@ dependencies:
   permission_handler: ^11.1.0
 
   # Firebase
-  firebase_core: ^2.24.2
-  cloud_firestore: ^4.13.6
-  firebase_messaging: ^14.7.9
+  firebase_core: ^3.15.0
+  cloud_firestore: ^5.0.0
+  firebase_messaging: ^15.0.0
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +77,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+
+# Dependency override solo para firebase_messaging_web (no se usa en cliente web)
+dependency_overrides:
+  firebase_messaging_web: ^3.10.10  # Versión compatible con web 0.5.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
