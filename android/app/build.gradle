@@ -26,8 +26,10 @@ android {
         // Android 7.0 Nougat (API 24) - Versión mínima requerida
         minSdk = 24
 
-        // Android 14 (API 34) - Versión objetivo
-        targetSdk = 34
+        // Android 13 (API 33) - Versión objetivo (downgrade temporal para MVP)
+        // Android 14+ requiere foreground service complejo para MediaProjection
+        // Para producción, usar targetSdk 34 con ScreenCaptureService
+        targetSdk = 33
 
         versionCode = flutter.versionCode
         versionName = flutter.versionName

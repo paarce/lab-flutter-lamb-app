@@ -39,6 +39,7 @@ dependencies:
   provider: ^6.1.1
 
   # WebRTC para control remoto
+  # Versión 0.9.48 estable - funciona con targetSdk 33 (Android 13)
   flutter_webrtc: ^0.9.48
 
   # AccessibilityService para automatización WhatsApp
@@ -50,6 +51,9 @@ dependencies:
 
   # WebSocket para ElevenLabs STT
   web_socket_channel: ^2.4.0
+
+  # Audio playback para TTS
+  audioplayers: ^5.2.1
 
   # Base de datos local
   hive: ^2.2.3

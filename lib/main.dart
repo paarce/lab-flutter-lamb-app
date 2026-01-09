@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
+import 'providers/remote_control_provider.dart';
 import 'screens/home_screen.dart';
+import 'services/elevenlabs_service.dart';
+import 'services/firebase_signaling_service.dart';
 
 /// Entry point de la aplicación
 /// Inicializa Firebase, Hive y Provider antes de ejecutar la app
@@ -38,17 +42,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Agregar MultiProvider cuando haya providers
-    // Por ahora usamos MaterialApp directamente
-    // Ejemplo futuro:
-    // return MultiProvider(
-    //   providers: [
-    //     ChangeNotifierProvider(create: (_) => VoiceCommandProvider()),
-    //   ],
-    //   child: MaterialApp(...),
-    // );
+    return MultiProvider(
+      providers: [
+        // Initialize services
+        Provider<FirebaseSignalingService>(
+          create: (_) => FirebaseSignalingService(),
+        ),
+        Provider<ElevenLabsService>(
+          create: (_) => ElevenLabsService(),
+        ),
 
-    return MaterialApp(
+        // Initialize providers with dependencies
+        ChangeNotifierProvider<RemoteControlProvider>(
+          create: (context) => RemoteControlProvider(
+            signalingService: context.read<FirebaseSignalingService>(),
+            ttsService: context.read<ElevenLabsService>(),
+          ),
+        ),
+      ],
+      child: MaterialApp(
         title: 'Asistente de Accesibilidad',
         debugShowCheckedModeBanner: false,
 
@@ -72,7 +84,8 @@ class MyApp extends StatelessWidget {
             child: child!,
           );
         },
-      );
+      ),
+    );
   }
 
   /// Construye un tema accesible según las reglas de WCAG 2.1 AA

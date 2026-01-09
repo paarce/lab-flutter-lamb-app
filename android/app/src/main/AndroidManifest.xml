@@ -1,4 +1,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Permisos para WebRTC y Control Remoto -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Permiso para captura de audio (requerido por WebRTC aunque no se use ahora) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Permiso para captura de video/cámara (requerido por WebRTC) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Permiso para servicio en foreground (necesario para sesión remota activa) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
+    <!-- Wake lock para mantener pantalla activa durante sesión remota -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Características de hardware opcionales (no requeridas) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
     <application
         android:label="lamb"
         android:name="${applicationName}"
@@ -25,6 +48,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- Foreground service for screen capture/media projection -->
+        <!-- Required for Android 14+ (API 34+) to use MediaProjection -->
+        <service
+            android:name=".ScreenCaptureService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
