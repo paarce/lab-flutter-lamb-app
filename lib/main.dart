@@ -7,6 +7,8 @@ import 'providers/remote_control_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/elevenlabs_service.dart';
 import 'services/firebase_signaling_service.dart';
+import 'services/error_handler_service.dart';
+import 'services/logger_service.dart';
 
 /// Entry point de la aplicación
 /// Inicializa Firebase, Hive y Provider antes de ejecutar la app
@@ -44,12 +46,22 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Logging service (Singleton)
+        Provider<LoggerService>(
+          create: (_) => LoggerService(),
+        ),
+
         // Initialize services
         Provider<FirebaseSignalingService>(
           create: (_) => FirebaseSignalingService(),
         ),
         Provider<ElevenLabsService>(
           create: (_) => ElevenLabsService(),
+        ),
+
+        // Error handler service (Singleton)
+        Provider<ErrorHandlerService>(
+          create: (_) => ErrorHandlerService(),
         ),
 
         // Initialize providers with dependencies

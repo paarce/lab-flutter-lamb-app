@@ -7,6 +7,57 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [1.1.0] - 2026-01-10
+
+### 🚨 Gestión Centralizada de Errores ✅
+
+#### Agregado
+- **ErrorHandlerService** - Servicio central único para manejo de errores
+  - Normaliza ANY tipo de error (AppError, PlatformException, FirebaseException, SocketException, etc)
+  - Genera mensajes accesibles automáticamente en español
+  - Reproduce errores con TTS (ElevenLabsService)
+  - Muestra diálogos modales (80dp botones, 24sp texto, Semantics)
+  - Botón "Cerrar" + "Reintentar" (condicional)
+  - Logging centralizado en memoria (máx 100 logs)
+
+- **LoggerService** - Logging en memoria (singleton)
+  - Soporta levels: DEBUG, INFO, ERROR
+  - Buffer en memoria (FIFO, máx 100 entries)
+  - Integración con dart:developer
+
+- **Estructura de errores:**
+  - `AppError` - Modelo base unificado
+  - `ErrorCategory` - Enums: PlatformChannel, Firebase, ElevenLabs, WebRTC, Network, Unknown
+  - `ErrorCodes` - Códigos normalizados por categoría (40+ códigos)
+  - `ErrorMessages` - Mensajes accesibles para usuario (español, TTS-ready)
+
+- **Guía de uso:**
+  - `ERROR_HANDLER_GUIDE.dart` - 4 casos de uso reales con ejemplos
+  - Documentación completa en CLAUDE.md
+
+- **Actualización de Providers:**
+  - `ErrorHandlerService` registrado como Provider
+  - `LoggerService` registrado como Singleton
+
+#### Características Clave
+✅ **Centralizado:** Un único punto de entrada para TODOS los errores
+✅ **Accesible:** Diálogos modales + TTS obligatorio para adultos mayores
+✅ **Consistente:** Misma experiencia de error en toda la app
+✅ **Sin reintentos automáticos:** Usuario controla reintentos
+✅ **Debuggable:** Códigos normalizados + logging centralizado
+✅ **Flexible:** Soporta 5 categorías + custom AppError
+
+#### Requisitos Cumplidos
+- ✅ Diálogos modales (más visibles para baja visión)
+- ✅ Botones grandes (80dp) + texto grande (24sp)
+- ✅ TTS integrado
+- ✅ Botón "Cerrar" + "Reintentar" (condicional)
+- ✅ Mensajes básicos (sin jerga técnica)
+- ✅ Logging en memoria (no en disco)
+- ✅ Sin WhatsAppService (feature futuro)
+
+---
+
 ## [1.0.0] - 2025-12-27
 
 ### Setup Inicial ✅

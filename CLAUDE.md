@@ -77,25 +77,38 @@ lib/
 ├── config/
 │   ├── secrets.dart                      ✅ Implementado (gitignored)
 │   └── secrets.example.dart              ✅ Implementado
+├── errors/                               ✅ GESTIÓN CENTRALIZADA DE ERRORES
+│   ├── app_error.dart                    ✅ Modelo base unificado
+│   ├── error_category.dart               ✅ Enums de categorías
+│   └── error_codes.dart                  ✅ Códigos de error normalizados
 ├── screens/
 │   ├── home_screen.dart                  ✅ Implementado
 │   ├── voice_command_screen.dart         🔜 Próxima funcionalidad
 │   ├── whatsapp_screen.dart              🔜 Próxima funcionalidad
 │   └── remote_control_screen.dart        🔜 Próxima funcionalidad
-├── services/                             🔜 Carpeta lista
-│   ├── elevenlabs_service.dart           🔜 STT/TTS
+├── services/
+│   ├── elevenlabs_service.dart           ✅ STT/TTS
+│   ├── firebase_signaling_service.dart   ✅ Firebase Signaling
+│   ├── webrtc_client_service.dart        ✅ WebRTC Client
+│   ├── webrtc_service.dart               ✅ WebRTC Base
+│   ├── foreground_service.dart           ✅ Servicio en primer plano
+│   ├── error_handler_service.dart        ✅ PUNTO CENTRAL DE ERRORES
+│   ├── logger_service.dart               ✅ Logging en memoria
+│   ├── ERROR_HANDLER_GUIDE.dart          ✅ Guía de uso (ejemplos)
 │   ├── whatsapp_service.dart             🔜 Platform Channel → Kotlin
-│   ├── webrtc_service.dart               🔜 Control remoto
 │   └── preferences_service.dart          🔜 Preferencias
-├── providers/                            🔜 Carpeta lista
+├── providers/
+│   ├── remote_control_provider.dart      ✅ State management control remoto
+│   ├── remote_viewer_provider.dart       ✅ State management viewer
 │   ├── voice_command_provider.dart       🔜 State management comandos
-│   ├── whatsapp_provider.dart            🔜 State management WhatsApp
-│   └── remote_control_provider.dart      🔜 State management control remoto
-├── models/                               🔜 Carpeta lista
+│   └── whatsapp_provider.dart            🔜 State management WhatsApp
+├── models/
+│   ├── remote_session.dart               ✅ Modelo de sesiones remotas
+│   ├── webrtc_signaling_message.dart     ✅ Mensajes WebRTC
 │   ├── command.dart                      🔜 Modelo de comandos
-│   ├── whatsapp_action.dart              🔜 Modelo de acciones WhatsApp
-│   └── remote_session.dart               🔜 Modelo de sesiones remotas
-└── utils/                                🔜 Carpeta lista
+│   └── whatsapp_action.dart              🔜 Modelo de acciones WhatsApp
+└── utils/
+    ├── error_messages.dart               ✅ Mensajes accesibles para usuario
     ├── nlp_parser.dart                   🔜 Parser de lenguaje natural
     └── constants.dart                    🔜 Constantes globales
 
@@ -173,6 +186,116 @@ android/app/src/main/kotlin/
 - ✅ Botones: mínimo **80dp altura**
 - ✅ Texto: mínimo **24sp**
 - ✅ Testar con TalkBack antes de commit
+
+---
+
+## 🚨 Gestión Centralizada de Errores (NUEVO)
+
+### Arquitectura
+
+La app usa un **servicio central único** (`ErrorHandlerService`) para manejar TODOS los errores. Esto garantiza:
+
+✅ **Consistencia:** Mismo flujo para todos los errores
+✅ **Accesibilidad:** Diálogos modales + TTS obligatorio
+✅ **Debugging:** Logging centralizado + códigos normalizados
+✅ **Sin confusión:** Sin reintentos automáticos
+
+### Archivos Relacionados
+
+- **`lib/errors/app_error.dart`** - Modelo base unificado para todos los errores
+- **`lib/errors/error_category.dart`** - Categorías: PlatformChannel, Firebase, ElevenLabs, WebRTC, Network
+- **`lib/errors/error_codes.dart`** - Códigos normalizados por categoría
+- **`lib/services/error_handler_service.dart`** - ⭐️ **PUNTO CENTRAL** - Usa SIEMPRE este servicio
+- **`lib/services/logger_service.dart`** - Logging en memoria (máximo 100 logs)
+- **`lib/utils/error_messages.dart`** - Mensajes accesibles en español para usuario + TTS
+- **`lib/services/ERROR_HANDLER_GUIDE.dart`** - Ejemplos y mejores prácticas
+
+### Uso Simple
+
+```dart
+// EN CUALQUIER SERVICE, PROVIDER O SCREEN:
+try {
+  await miServicio.hacerAlgo();
+} catch (e) {
+  if (context.mounted) {
+    await ErrorHandlerService.handleError(
+      context: context,
+      error: e,
+      service: 'MiService',
+      canRetry: true,  // Mostrar botón "Reintentar"
+      onRetry: () => miServicio.hacerAlgo(),
+      ttsService: context.read<ElevenLabsService>(),
+    );
+  }
+}
+```
+
+### Características Automáticas
+
+1. **Normaliza cualquier error:**
+   - `AppError` → se usa directamente
+   - `PlatformException` → convierte a AppError
+   - `FirebaseException` → categoriza como firebase
+   - `SocketException` → detecta como error de red
+   - Otros → marca como unknown
+
+2. **Genera mensaje accesible:**
+   - Automáticamente en español
+   - Lenguaje simple (para personas 60+)
+   - Optimizado para TTS
+
+3. **Reproduce con TTS:**
+   - Si `ttsService` disponible, reproduce el mensaje
+   - Si TTS falla, continúa sin romper
+
+4. **Muestra diálogo modal:**
+   - Modal (visible para baja visión)
+   - Botones 80dp + texto 24sp
+   - Semantics para TalkBack
+   - Siempre: botón "Cerrar"
+   - Condicionalmente: botón "Reintentar"
+
+5. **Registra logs:**
+   - Todos los errores en memoria
+   - Máximo 100 logs (FIFO)
+   - Timestamps + tags + stack traces
+
+### Categorías de Errores (en orden de criticidad)
+
+```
+1. PLATFORM_CHANNEL   → Errores de Kotlin/Android
+2. FIREBASE           → Firestore, Authentication
+3. ELEVENLABS         → STT/TTS API
+4. WEBRTC             → Control remoto
+5. NETWORK            → Internet connectivity
+6. UNKNOWN            → No clasificado
+```
+
+### Cuándo Usar `canRetry`
+
+**`canRetry=true`** (mostrar botón "Reintentar"):
+- Error transitorio (sin internet, timeout)
+- Reintentar tiene sentido
+- No es configuración faltante
+
+**`canRetry=false`** (solo botón "Cerrar"):
+- Error permanente (permiso denegado)
+- Necesita acción manual (Configuración)
+- Reintentar sin cambios no ayuda
+
+### Mejores Prácticas
+
+✅ **HACER:**
+- Pasar `ttsService: context.read<ElevenLabsService>()`
+- Ofrecer `onRetry` solo si tiene sentido
+- Usar nombres de service descriptivos
+- Capturar errors en try-catch
+
+❌ **NO HACER:**
+- Mostrar diálogos de error manuales (usa ErrorHandlerService)
+- Reintentos automáticos
+- Mensajes técnicos al usuario
+- Ignorar errores en Platform Channel
 
 ---
 
