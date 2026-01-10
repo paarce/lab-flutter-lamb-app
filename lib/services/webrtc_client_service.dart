@@ -2,9 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../errors/app_error.dart';
+import '../errors/error_category.dart';
+import '../errors/error_codes.dart';
 import '../models/remote_session.dart';
+import 'error_handler_service.dart';
 import 'firebase_signaling_service.dart';
 
 /// Service for managing WebRTC peer connections (CLIENT side)
@@ -37,6 +42,10 @@ class WebRTCClientService {
   /// Stream of remote stream updates
   Stream<MediaStream> get remoteStreamStream =>
       _remoteStreamController.stream;
+
+  /// Current remote stream (if available)
+  /// Use this to get the stream immediately if it's already set
+  MediaStream? get currentRemoteStream => _remoteStream;
 
   /// Stream controller for connection state changes
   final _connectionStateController =
@@ -80,68 +89,94 @@ class WebRTCClientService {
   /// Joins an existing remote session as client
   ///
   /// [sessionCode] The 6-digit session code from host
+  /// [context] BuildContext for error handling (optional)
   ///
   /// Throws [Exception] if session not found or connection fails
-  Future<void> joinSession(String sessionCode) async {
+  Future<void> joinSession(
+    String sessionCode, {
+    BuildContext? context,
+  }) async {
     try {
-      print('🔵 [WebRTCClient] JOIN: Starting to join session: $sessionCode');
       _currentSessionCode = sessionCode;
 
-      // Step 1: Fetch session from Firestore
-      print('🔵 [WebRTCClient] JOIN: Step 1 - Fetching session from Firestore...');
+      // Fetch session from Firestore
       final session = await _signalingService.getSession(sessionCode);
 
       if (session == null) {
-        throw Exception('Código de sesión no encontrado o expirado');
-      }
-
-      if (session.status == RemoteSessionStatus.ended) {
-        throw Exception('La sesión ha terminado');
-      }
-
-      if (session.offerSdp == null) {
-        throw Exception(
-          'La sesión aún no tiene oferta. Por favor, espera unos segundos e intenta de nuevo.',
+        throw AppError(
+          category: ErrorCategory.webRTC,
+          code: ErrorCodes.wrtcPeerNotFound,
+          technicalMessage: 'Session $sessionCode not found in Firestore',
+          userMessage: 'Código de sesión no encontrado o expirado',
+          canRetry: false,
         );
       }
 
-      print('🔵 [WebRTCClient] JOIN: Step 1 - Session found with offer (${session.offerSdp!.length} chars)');
-
-      // Step 2: Create peer connection
-      print('🔵 [WebRTCClient] JOIN: Step 2 - Creating peer connection...');
-      await _createPeerConnection();
-      print('🔵 [WebRTCClient] JOIN: Step 2 - Peer connection created');
-
-      // Step 3: Set remote description (offer from host)
-      print('🔵 [WebRTCClient] JOIN: Step 3 - Setting remote offer...');
-      await _setRemoteOffer(session.offerSdp!);
-      print('🔵 [WebRTCClient] JOIN: Step 3 - Remote offer set');
-
-      // Step 4: Create and send answer
-      print('🔵 [WebRTCClient] JOIN: Step 4 - Creating answer...');
-      await _createAnswer();
-      print('🔵 [WebRTCClient] JOIN: Step 4 - Answer created and sent');
-
-      // Step 5: Add host's ICE candidates (if any)
-      if (session.hostIceCandidates != null &&
-          session.hostIceCandidates!.isNotEmpty) {
-        print('🔵 [WebRTCClient] JOIN: Step 5 - Adding ${session.hostIceCandidates!.length} host ICE candidates...');
-        await _addHostIceCandidates(session.hostIceCandidates!);
-        print('🔵 [WebRTCClient] JOIN: Step 5 - Host ICE candidates added');
-      } else {
-        print('🔵 [WebRTCClient] JOIN: Step 5 - No host ICE candidates yet');
+      if (session.status == RemoteSessionStatus.ended) {
+        throw AppError(
+          category: ErrorCategory.webRTC,
+          code: ErrorCodes.wrtcConnectionFailed,
+          technicalMessage: 'Session $sessionCode has ended',
+          userMessage: 'La sesión ha terminado',
+          canRetry: false,
+        );
       }
 
-      // Step 6: Listen for new host ICE candidates
-      print('🔵 [WebRTCClient] JOIN: Step 6 - Setting up signaling listeners...');
-      _listenForSignaling(sessionCode);
-      print('🔵 [WebRTCClient] JOIN: Step 6 - Signaling listeners setup');
+      if (session.offerSdp == null) {
+        throw AppError(
+          category: ErrorCategory.webRTC,
+          code: ErrorCodes.wrtcConnectionFailed,
+          technicalMessage: 'Session $sessionCode has no offer SDP yet',
+          userMessage:
+              'La sesión aún no tiene oferta. Por favor, espera unos segundos e intenta de nuevo.',
+          canRetry: true,
+        );
+      }
 
-      print('✅ [WebRTCClient] JOIN: Successfully joined session');
+      // Create peer connection
+      await _createPeerConnection();
+
+      // Set remote description (offer from host)
+      await _setRemoteOffer(session.offerSdp!);
+
+      // Create and send answer
+      await _createAnswer();
+
+      // Add host's ICE candidates (if any)
+      if (session.hostIceCandidates != null &&
+          session.hostIceCandidates!.isNotEmpty) {
+        await _addHostIceCandidates(session.hostIceCandidates!);
+      }
+
+      // Listen for new host ICE candidates
+      _listenForSignaling(sessionCode);
     } catch (e, stackTrace) {
-      print('🔴 [WebRTCClient] JOIN: Failed to join session');
-      print('🔴 [WebRTCClient] ERROR: $e');
-      print('🔴 [WebRTCClient] STACK: $stackTrace');
+      developer.log(
+        'Failed to join session',
+        name: 'WebRTCClient',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      // Show user-friendly error if context available
+      if (context != null && context.mounted) {
+        await ErrorHandlerService.handleError(
+          context: context,
+          error: e is AppError
+              ? e
+              : AppError(
+                  category: ErrorCategory.webRTC,
+                  code: ErrorCodes.wrtcConnectionFailed,
+                  technicalMessage: e.toString(),
+                  userMessage: 'No pudimos conectar con la sesión remota.',
+                  canRetry: true,
+                  stackTrace: stackTrace,
+                ),
+          service: 'WebRTCClientService',
+          canRetry: e is AppError ? e.canRetry : true,
+          onRetry: () => joinSession(sessionCode, context: context),
+        );
+      }
 
       await dispose();
       rethrow;
@@ -177,8 +212,6 @@ class WebRTCClientService {
   /// Sets the remote offer from host
   Future<void> _setRemoteOffer(String sdp) async {
     try {
-      print('🔵 [WebRTCClient] _setRemoteOffer: Starting...');
-
       final RTCSessionDescription offer = RTCSessionDescription(
         sdp,
         'offer',
@@ -186,14 +219,16 @@ class WebRTCClientService {
 
       await _peerConnection!.setRemoteDescription(offer);
 
-      print('✅ [WebRTCClient] _setRemoteOffer: Remote offer set');
-
       developer.log(
         'Remote offer set',
         name: 'WebRTCClient',
       );
     } catch (e) {
-      print('🔴 [WebRTCClient] _setRemoteOffer: Failed - $e');
+      developer.log(
+        'Failed to set remote offer',
+        name: 'WebRTCClient',
+        error: e,
+      );
       throw Exception('Failed to set remote offer: $e');
     }
   }
@@ -201,33 +236,29 @@ class WebRTCClientService {
   /// Creates SDP answer and sends it via signaling
   Future<void> _createAnswer() async {
     try {
-      print('🔵 [WebRTCClient] _createAnswer: Starting...');
-
       // Create answer
-      print('🔵 [WebRTCClient] _createAnswer: Calling createAnswer()...');
       final RTCSessionDescription answer =
           await _peerConnection!.createAnswer();
-      print('🔵 [WebRTCClient] _createAnswer: Answer created (${answer.sdp?.length} chars)');
 
       // Set as local description
-      print('🔵 [WebRTCClient] _createAnswer: Calling setLocalDescription()...');
       await _peerConnection!.setLocalDescription(answer);
-      print('🔵 [WebRTCClient] _createAnswer: Local description set');
 
       // Send answer via signaling service
-      print('🔵 [WebRTCClient] _createAnswer: Sending answer to Firestore...');
       await _signalingService.setAnswer(
         _currentSessionCode!,
         answer.sdp!,
       );
-      print('✅ [WebRTCClient] _createAnswer: Answer sent to Firestore');
 
       developer.log(
         'Answer created and sent',
         name: 'WebRTCClient',
       );
     } catch (e) {
-      print('🔴 [WebRTCClient] _createAnswer: Failed - $e');
+      developer.log(
+        'Failed to create answer',
+        name: 'WebRTCClient',
+        error: e,
+      );
       throw Exception('Failed to create answer: $e');
     }
   }
@@ -295,11 +326,6 @@ class WebRTCClientService {
 
   /// Event handler for receiving remote track (video stream from host)
   void _onTrack(RTCTrackEvent event) {
-    print('🔵 [WebRTCClient] _onTrack: Track received');
-    print('🔵 [WebRTCClient] _onTrack: Track kind: ${event.track.kind}');
-    print('🔵 [WebRTCClient] _onTrack: Track id: ${event.track.id}');
-    print('🔵 [WebRTCClient] _onTrack: Streams count: ${event.streams.length}');
-
     developer.log(
       'Track received: ${event.track.kind}',
       name: 'WebRTCClient',
@@ -311,9 +337,6 @@ class WebRTCClientService {
       // Only add to controller if not closed
       if (!_remoteStreamController.isClosed) {
         _remoteStreamController.add(_remoteStream!);
-        print('✅ [WebRTCClient] _onTrack: Remote stream set (id: ${_remoteStream!.id})');
-      } else {
-        print('⚠️  [WebRTCClient] _onTrack: Stream controller closed, cannot add stream');
       }
 
       developer.log(
@@ -325,9 +348,6 @@ class WebRTCClientService {
 
   /// Event handler for receiving data channel from host
   void _onDataChannel(RTCDataChannel channel) {
-    print('🔵 [WebRTCClient] _onDataChannel: Data channel received');
-    print('🔵 [WebRTCClient] _onDataChannel: Channel label: ${channel.label}');
-
     developer.log(
       'Data channel received: ${channel.label}',
       name: 'WebRTCClient',
@@ -335,14 +355,11 @@ class WebRTCClientService {
 
     if (channel.label == 'control') {
       _dataChannel = channel;
-      print('✅ [WebRTCClient] _onDataChannel: Control data channel ready');
     }
   }
 
   /// Event handler for ICE candidate events
   void _onIceCandidate(RTCIceCandidate candidate) {
-    print('🔵 [WebRTCClient] _onIceCandidate: ICE candidate generated');
-
     developer.log(
       'ICE candidate generated: ${candidate.candidate}',
       name: 'WebRTCClient',
@@ -364,8 +381,6 @@ class WebRTCClientService {
 
   /// Event handler for ICE connection state changes
   void _onIceConnectionStateChange(RTCIceConnectionState state) {
-    print('🔵 [WebRTCClient] _onIceConnectionStateChange: ICE state: $state');
-
     developer.log(
       'ICE connection state: $state',
       name: 'WebRTCClient',
@@ -374,8 +389,6 @@ class WebRTCClientService {
 
   /// Event handler for peer connection state changes
   void _onConnectionStateChange(RTCPeerConnectionState state) {
-    print('🔵 [WebRTCClient] _onConnectionStateChange: Connection state: $state');
-
     developer.log(
       'Peer connection state: $state',
       name: 'WebRTCClient',
@@ -386,8 +399,6 @@ class WebRTCClientService {
     // Only add to controller if not closed
     if (!_connectionStateController.isClosed) {
       _connectionStateController.add(state);
-    } else {
-      print('⚠️  [WebRTCClient] _onConnectionStateChange: Controller closed, cannot add state');
     }
 
     // Update session status in Firestore
@@ -437,13 +448,6 @@ class WebRTCClientService {
       });
 
       _dataChannel!.send(RTCDataChannelMessage(message));
-
-      print('🔵 [WebRTCClient] sendTouchEvent: Sent touch at ($normalizedX, $normalizedY)');
-
-      developer.log(
-        'Sent touch event: ($normalizedX, $normalizedY)',
-        name: 'WebRTCClient',
-      );
     } catch (e) {
       developer.log(
         'Failed to send touch event',
@@ -456,8 +460,6 @@ class WebRTCClientService {
   /// Closes the WebRTC connection and cleans up resources
   Future<void> dispose() async {
     try {
-      print('🔵 [WebRTCClient] dispose: Disposing client service...');
-
       developer.log(
         'Disposing WebRTC client service',
         name: 'WebRTCClient',
@@ -491,8 +493,6 @@ class WebRTCClientService {
       // Close stream controllers
       await _remoteStreamController.close();
       await _connectionStateController.close();
-
-      print('✅ [WebRTCClient] dispose: Client service disposed');
 
       developer.log(
         'WebRTC client service disposed',

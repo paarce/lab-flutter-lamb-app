@@ -4,6 +4,9 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../errors/app_error.dart';
+import '../errors/error_category.dart';
+import '../errors/error_codes.dart';
 import '../models/remote_session.dart';
 import '../services/firebase_signaling_service.dart';
 import '../services/webrtc_client_service.dart';
@@ -48,6 +51,18 @@ class RemoteViewerProvider extends ChangeNotifier {
 
   String? get errorMessage => _errorMessage;
 
+  /// Last error that occurred (for detailed error handling)
+  AppError? _lastError;
+
+  AppError? get lastError => _lastError;
+
+  /// Clears the last error
+  void clearError() {
+    _lastError = null;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   /// Stream subscription for remote stream updates
   StreamSubscription<MediaStream>? _streamSubscription;
 
@@ -74,8 +89,6 @@ class RemoteViewerProvider extends ChangeNotifier {
   /// Returns true if successful, false otherwise
   Future<bool> connectToSession(String sessionCode) async {
     try {
-      print('🔵 [RemoteViewer] connectToSession: Starting connection to $sessionCode');
-
       // Clear previous errors
       _errorMessage = null;
 
@@ -92,24 +105,24 @@ class RemoteViewerProvider extends ChangeNotifier {
       _setStatus(RemoteViewerStatus.connecting);
 
       // Join session via WebRTC service
-      print('🔵 [RemoteViewer] connectToSession: Joining WebRTC session...');
       await _webrtcService.joinSession(sessionCode);
-      print('🔵 [RemoteViewer] connectToSession: WebRTC session joined');
 
-      // Listen for remote stream
-      print('🔵 [RemoteViewer] connectToSession: Setting up stream listener...');
+      // Check if stream is already available (may have been set during joinSession)
+      if (_webrtcService.currentRemoteStream != null) {
+        _remoteStream = _webrtcService.currentRemoteStream;
+        notifyListeners();
+      }
+
+      // Listen for remote stream updates
       _streamSubscription =
           _webrtcService.remoteStreamStream.listen((stream) {
-        print('🔵 [RemoteViewer] Remote stream received: ${stream.id}');
         _remoteStream = stream;
         notifyListeners();
       });
 
       // Listen for connection state changes
-      print('🔵 [RemoteViewer] connectToSession: Setting up connection state listener...');
       _connectionStateSubscription =
           _webrtcService.connectionStateStream.listen((state) {
-        print('🔵 [RemoteViewer] Connection state changed: $state');
         _connectionState = state;
 
         switch (state) {
@@ -120,6 +133,13 @@ class RemoteViewerProvider extends ChangeNotifier {
             _setStatus(RemoteViewerStatus.connected);
             break;
           case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
+            _lastError = AppError(
+              category: ErrorCategory.webRTC,
+              code: ErrorCodes.wrtcConnectionFailed,
+              technicalMessage: 'Peer connection state failed',
+              userMessage: 'Conexión WebRTC fallida',
+              canRetry: true,
+            );
             _setStatus(RemoteViewerStatus.failed);
             _setError('Conexión WebRTC fallida');
             break;
@@ -134,16 +154,11 @@ class RemoteViewerProvider extends ChangeNotifier {
       });
 
       // Listen for session updates (e.g., host disconnect)
-      print('🔵 [RemoteViewer] connectToSession: Setting up session listener...');
       _listenToSessionUpdates();
-
-      print('✅ [RemoteViewer] connectToSession: Connection setup complete');
 
       notifyListeners();
       return true;
     } on Exception catch (e) {
-      print('🔴 [RemoteViewer] connectToSession: Exception caught: $e');
-
       // Parse user-friendly error messages from exceptions
       String errorMessage = e.toString();
 
@@ -152,20 +167,39 @@ class RemoteViewerProvider extends ChangeNotifier {
         errorMessage = errorMessage.substring('Exception: '.length);
       }
 
-      print('🔴 [RemoteViewer] connectToSession: Error message: $errorMessage');
+      // Create AppError instance for detailed error handling
+      _lastError = AppError(
+        category: ErrorCategory.webRTC,
+        code: ErrorCodes.wrtcConnectionFailed,
+        technicalMessage: e.toString(),
+        userMessage: errorMessage,
+        canRetry: true,
+      );
 
       _setError(errorMessage);
       _setStatus(RemoteViewerStatus.failed);
 
       // Cleanup on error
-      print('🔴 [RemoteViewer] connectToSession: Running cleanup...');
       await _cleanup();
-      print('🔴 [RemoteViewer] connectToSession: Cleanup completed');
 
       return false;
     } catch (e, stackTrace) {
-      print('🔴 [RemoteViewer] connectToSession: Unexpected error caught: $e');
-      print('🔴 [RemoteViewer] connectToSession: Stack trace: $stackTrace');
+      developer.log(
+        'Unexpected error connecting to session',
+        name: 'RemoteViewerProvider',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      // Create AppError instance for detailed error handling
+      _lastError = AppError(
+        category: ErrorCategory.unknown,
+        code: ErrorCodes.unknownError,
+        technicalMessage: e.toString(),
+        userMessage: 'Error inesperado al conectar. Por favor, intenta de nuevo.',
+        canRetry: true,
+        stackTrace: stackTrace,
+      );
 
       _setError(
         'Error inesperado al conectar. Por favor, intenta de nuevo.',
@@ -173,9 +207,7 @@ class RemoteViewerProvider extends ChangeNotifier {
       _setStatus(RemoteViewerStatus.failed);
 
       // Cleanup on error
-      print('🔴 [RemoteViewer] connectToSession: Running cleanup after unexpected error...');
       await _cleanup();
-      print('🔴 [RemoteViewer] connectToSession: Cleanup completed');
 
       return false;
     }
@@ -187,14 +219,7 @@ class RemoteViewerProvider extends ChangeNotifier {
   /// [normalizedY] Y coordinate normalized to 0.0-1.0
   Future<void> sendTouch(double normalizedX, double normalizedY) async {
     try {
-      print('🔵 [RemoteViewer] sendTouch: Sending touch at ($normalizedX, $normalizedY)');
-
       await _webrtcService.sendTouchEvent(normalizedX, normalizedY);
-
-      developer.log(
-        'Touch sent: ($normalizedX, $normalizedY)',
-        name: 'RemoteViewerProvider',
-      );
     } catch (e) {
       developer.log(
         'Failed to send touch',
@@ -207,19 +232,10 @@ class RemoteViewerProvider extends ChangeNotifier {
   /// Disconnects from the current session
   Future<void> disconnect() async {
     try {
-      print('🔵 [RemoteViewer] disconnect: Disconnecting from session...');
-
-      developer.log(
-        'Disconnecting from remote session',
-        name: 'RemoteViewerProvider',
-      );
-
       _setStatus(RemoteViewerStatus.disconnected);
 
       // Cleanup resources
       await _cleanup();
-
-      print('✅ [RemoteViewer] disconnect: Disconnected successfully');
 
       developer.log(
         'Disconnected from remote session',
@@ -249,13 +265,18 @@ class RemoteViewerProvider extends ChangeNotifier {
         .listen((session) {
       if (session == null) {
         // Session ended or expired
-        print('🔴 [RemoteViewer] Session ended or expired');
-
         developer.log(
           'Session ended or expired',
           name: 'RemoteViewerProvider',
         );
 
+        _lastError = AppError(
+          category: ErrorCategory.webRTC,
+          code: ErrorCodes.wrtcSessionExpired,
+          technicalMessage: 'Session document no longer exists in Firestore',
+          userMessage: 'La sesión ha terminado',
+          canRetry: false,
+        );
         _setStatus(RemoteViewerStatus.disconnected);
         _setError('La sesión ha terminado');
         _cleanup();
@@ -274,11 +295,25 @@ class RemoteViewerProvider extends ChangeNotifier {
           _setStatus(RemoteViewerStatus.connected);
           break;
         case RemoteSessionStatus.ended:
+          _lastError = AppError(
+            category: ErrorCategory.webRTC,
+            code: ErrorCodes.wrtcSessionExpired,
+            technicalMessage: 'Host ended the session',
+            userMessage: 'El host terminó la sesión',
+            canRetry: false,
+          );
           _setStatus(RemoteViewerStatus.disconnected);
           _setError('El host terminó la sesión');
           _cleanup();
           break;
         case RemoteSessionStatus.failed:
+          _lastError = AppError(
+            category: ErrorCategory.webRTC,
+            code: ErrorCodes.wrtcConnectionFailed,
+            technicalMessage: 'Session status changed to failed',
+            userMessage: 'Conexión fallida',
+            canRetry: true,
+          );
           _setStatus(RemoteViewerStatus.failed);
           _setError('Conexión fallida');
           _cleanup();
@@ -292,39 +327,17 @@ class RemoteViewerProvider extends ChangeNotifier {
   /// Sets the current status
   void _setStatus(RemoteViewerStatus status) {
     _status = status;
-
-    print('🔵 [RemoteViewer] Status changed: $status');
-
-    developer.log(
-      'Status changed: $status',
-      name: 'RemoteViewerProvider',
-    );
-
     notifyListeners();
   }
 
   /// Sets an error message
   void _setError(String message) {
     _errorMessage = message;
-
-    print('🔴 [RemoteViewer] Error: $message');
-
-    developer.log(
-      'Error: $message',
-      name: 'RemoteViewerProvider',
-    );
   }
 
   /// Cleans up all resources
   Future<void> _cleanup() async {
     try {
-      print('🔵 [RemoteViewer] _cleanup: Cleaning up resources...');
-
-      developer.log(
-        'Cleaning up resources',
-        name: 'RemoteViewerProvider',
-      );
-
       // Cancel subscriptions
       await _streamSubscription?.cancel();
       _streamSubscription = null;
@@ -343,8 +356,6 @@ class RemoteViewerProvider extends ChangeNotifier {
       _remoteStream = null;
       _connectionState = null;
 
-      print('✅ [RemoteViewer] _cleanup: Resources cleaned up');
-
       notifyListeners();
     } catch (e, stackTrace) {
       developer.log(
@@ -358,17 +369,8 @@ class RemoteViewerProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    print('🔵 [RemoteViewer] dispose: Disposing provider...');
-
-    developer.log(
-      'Disposing RemoteViewerProvider',
-      name: 'RemoteViewerProvider',
-    );
-
     _cleanup();
     super.dispose();
-
-    print('✅ [RemoteViewer] dispose: Provider disposed');
   }
 }
 

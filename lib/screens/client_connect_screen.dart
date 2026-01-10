@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/remote_viewer_provider.dart';
+import '../services/error_handler_service.dart';
 import 'client_viewer_screen.dart';
 
 /// Screen for entering session code to connect to host
@@ -40,6 +41,24 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
       ),
       body: Consumer<RemoteViewerProvider>(
         builder: (context, provider, child) {
+          // Check for errors and display them using ErrorHandlerService
+          if (provider.lastError != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && provider.lastError != null) {
+                ErrorHandlerService.handleError(
+                  context: context,
+                  error: provider.lastError!,
+                  service: 'RemoteViewerProvider',
+                  canRetry: provider.lastError!.canRetry,
+                  onRetry: provider.lastError!.canRetry
+                      ? () => _connectToSession(provider)
+                      : null,
+                );
+                provider.clearError();
+              }
+            });
+          }
+
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),

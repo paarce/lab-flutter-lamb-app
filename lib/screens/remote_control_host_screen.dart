@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/remote_control_provider.dart';
+import '../services/error_handler_service.dart';
 import '../widgets/accessible_button.dart';
 import '../widgets/connection_status_indicator.dart';
 import '../widgets/session_code_display.dart';
@@ -35,6 +36,24 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       ),
       body: Consumer<RemoteControlProvider>(
         builder: (context, provider, child) {
+          // Check for errors and display them using ErrorHandlerService
+          if (provider.lastError != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && provider.lastError != null) {
+                ErrorHandlerService.handleError(
+                  context: context,
+                  error: provider.lastError!,
+                  service: 'RemoteControlProvider',
+                  canRetry: provider.lastError!.canRetry,
+                  onRetry: provider.lastError!.canRetry
+                      ? () => _startSession(provider)
+                      : null,
+                );
+                provider.clearError();
+              }
+            });
+          }
+
           return SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),

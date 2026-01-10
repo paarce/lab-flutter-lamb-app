@@ -2,10 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../errors/app_error.dart';
+import '../errors/error_category.dart';
+import '../errors/error_codes.dart';
 import '../models/remote_session.dart';
+import 'error_handler_service.dart';
 import 'firebase_signaling_service.dart';
 
 /// Service for managing WebRTC peer connections
@@ -43,6 +48,9 @@ class WebRTCService {
   RTCPeerConnectionState? _connectionState;
 
   RTCPeerConnectionState? get connectionState => _connectionState;
+
+  /// Flag to track if answer from client has been processed
+  bool _answerReceived = false;
 
   /// Platform channel for native Android functionality
   static const _platform =
@@ -93,47 +101,59 @@ class WebRTCService {
   /// and sets up event listeners.
   ///
   /// [sessionCode] The session code for signaling
+  /// [context] BuildContext for error handling (optional)
   ///
   /// Throws [Exception] if initialization fails
-  Future<void> initializeAsHost(String sessionCode) async {
+  Future<void> initializeAsHost(
+    String sessionCode, {
+    BuildContext? context,
+  }) async {
     try {
-      print('🟢 [WebRTCService] INIT: Starting WebRTC initialization for session: $sessionCode');
-
       _currentSessionCode = sessionCode;
+      _answerReceived = false; // Reset flag for new session
 
       // Create peer connection
-      print('🟢 [WebRTCService] INIT: Step 1 - Creating peer connection...');
       await _createPeerConnection();
-      print('🟢 [WebRTCService] INIT: Step 1 - Peer connection created');
 
       // Create and add local screen capture track
-      print('🟢 [WebRTCService] INIT: Step 2 - Creating local screen track...');
       await _createLocalScreenTrack();
-      print('🟢 [WebRTCService] INIT: Step 2 - Local screen track created');
 
       // Create data channel for touch control
-      print('🟢 [WebRTCService] INIT: Step 2.5 - Creating data channel for touch control...');
       await _createDataChannel();
-      print('🟢 [WebRTCService] INIT: Step 2.5 - Data channel created');
 
       // Setup signaling listeners (for answer and ICE candidates from client)
-      print('🟢 [WebRTCService] INIT: Step 3 - Setting up signaling listeners...');
       _listenForSignaling(sessionCode);
-      print('🟢 [WebRTCService] INIT: Step 3 - Signaling listeners setup');
 
       // Create and send offer
-      print('🟢 [WebRTCService] INIT: Step 4 - Creating and sending offer...');
       await _createOffer();
-      print('🟢 [WebRTCService] INIT: Step 4 - Offer created and sent');
-
-      print('✅ [WebRTCService] INIT: WebRTC initialized successfully as host');
     } catch (e, stackTrace) {
-      print('🔴 [WebRTCService] INIT: Failed to initialize WebRTC');
-      print('🔴 [WebRTCService] ERROR: $e');
-      print('🔴 [WebRTCService] STACK: $stackTrace');
+      developer.log(
+        'Failed to initialize WebRTC',
+        name: 'WebRTCService',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      // Show user-friendly error if context available
+      if (context != null && context.mounted) {
+        await ErrorHandlerService.handleError(
+          context: context,
+          error: AppError(
+            category: ErrorCategory.webRTC,
+            code: ErrorCodes.wrtcConnectionFailed,
+            technicalMessage: e.toString(),
+            userMessage: 'No pudimos iniciar la sesión remota.',
+            canRetry: true,
+            stackTrace: stackTrace,
+          ),
+          service: 'WebRTCService',
+          canRetry: true,
+          onRetry: () => initializeAsHost(sessionCode, context: context),
+        );
+      }
 
       await dispose();
-      throw Exception('Failed to initialize WebRTC: $e');
+      rethrow;
     }
   }
 
@@ -166,39 +186,26 @@ class WebRTCService {
   /// Uses display media (screen capture) instead of camera
   Future<void> _createLocalScreenTrack() async {
     try {
-      print('🟢 [WebRTCService] _createLocalScreenTrack: Starting...');
-      final totalStart = DateTime.now();
-
       // Create screen capture stream
       // Note: On Android, this requires MediaProjection permission
-      print('🟢 [WebRTCService] _createLocalScreenTrack: Calling getDisplayMedia()...');
-      print('⚠️  [WebRTCService] NOTE: If permission dialog appears, this might request MediaProjection again');
-      final getMediaStart = DateTime.now();
-
       _localStream = await navigator.mediaDevices.getDisplayMedia(
         _mediaConstraints,
       );
-
-      final getMediaDuration = DateTime.now().difference(getMediaStart);
-      print('⏱️  [WebRTCService] _createLocalScreenTrack: getDisplayMedia() took ${getMediaDuration.inMilliseconds}ms (${(getMediaDuration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
 
       if (_localStream == null) {
         throw Exception('Failed to get display media stream');
       }
 
       // Add video track to peer connection
-      print('🟢 [WebRTCService] _createLocalScreenTrack: Adding tracks to peer connection...');
-      int trackCount = 0;
       _localStream!.getTracks().forEach((track) {
-        trackCount++;
-        print('🟢 [WebRTCService] _createLocalScreenTrack: Adding track #$trackCount: ${track.kind} (id: ${track.id})');
         _peerConnection!.addTrack(track, _localStream!);
       });
-
-      final totalDuration = DateTime.now().difference(totalStart);
-      print('✅ [WebRTCService] _createLocalScreenTrack: Completed in ${totalDuration.inMilliseconds}ms (${(totalDuration.inMilliseconds / 1000).toStringAsFixed(1)}s) - $trackCount tracks added');
     } catch (e) {
-      print('🔴 [WebRTCService] _createLocalScreenTrack: Failed - $e');
+      developer.log(
+        'Failed to create screen track',
+        name: 'WebRTCService',
+        error: e,
+      );
       throw Exception('Failed to create screen track: $e');
     }
   }
@@ -206,8 +213,6 @@ class WebRTCService {
   /// Creates data channel for receiving touch control events from client
   Future<void> _createDataChannel() async {
     try {
-      print('🟢 [WebRTCService] _createDataChannel: Creating data channel...');
-
       // Create data channel configuration
       final dataChannelInit = RTCDataChannelInit()
         ..id = 1
@@ -227,18 +232,11 @@ class WebRTCService {
         _onDataChannelMessage(message);
       };
 
-      _controlDataChannel!.stateChangeStream.listen((state) {
-        print('🟢 [WebRTCService] Data channel state: $state');
-      });
-
-      print('✅ [WebRTCService] _createDataChannel: Data channel created');
-
       developer.log(
         'Data channel created',
         name: 'WebRTCService',
       );
     } catch (e) {
-      print('🔴 [WebRTCService] _createDataChannel: Failed - $e');
       // Don't throw - data channel is optional feature
       developer.log(
         'Failed to create data channel (non-critical)',
@@ -251,15 +249,11 @@ class WebRTCService {
   /// Handles incoming messages on data channel
   void _onDataChannelMessage(RTCDataChannelMessage message) {
     try {
-      print('🟢 [WebRTCService] _onDataChannelMessage: Received message');
-
       final data = json.decode(message.text);
-      print('🟢 [WebRTCService] _onDataChannelMessage: Message type: ${data['type']}');
 
       if (data['type'] == 'tap') {
         final x = data['x'] as double;
         final y = data['y'] as double;
-        print('🟢 [WebRTCService] _onDataChannelMessage: Touch at ($x, $y)');
 
         _handleRemoteTap(x, y);
       }
@@ -278,7 +272,6 @@ class WebRTCService {
   /// simulates tap via AccessibilityService
   Future<void> _handleRemoteTap(double normalizedX, double normalizedY) async {
     try {
-      print('🟢 [WebRTCService] _handleRemoteTap: Processing tap at ($normalizedX, $normalizedY)');
 
       // TODO: Get actual screen dimensions from MediaProjection
       // For now, using common Android resolutions
@@ -290,15 +283,8 @@ class WebRTCService {
       final pixelX = (normalizedX * screenWidth).toInt();
       final pixelY = (normalizedY * screenHeight).toInt();
 
-      print('🟢 [WebRTCService] _handleRemoteTap: Pixel coordinates: ($pixelX, $pixelY)');
-
       // Call Platform Channel to simulate tap
       await _simulateTap(pixelX.toDouble(), pixelY.toDouble());
-
-      developer.log(
-        'Remote tap: normalized=($normalizedX, $normalizedY), pixels=($pixelX, $pixelY)',
-        name: 'WebRTCService',
-      );
     } catch (e) {
       developer.log(
         'Failed to handle remote tap',
@@ -314,30 +300,17 @@ class WebRTCService {
   /// AccessibilityService
   Future<void> _simulateTap(double x, double y) async {
     try {
-      print('🟢 [WebRTCService] _simulateTap: Calling platform channel with ($x, $y)');
-
       await _platform.invokeMethod('simulateTap', {
         'x': x,
         'y': y,
       });
-
-      print('✅ [WebRTCService] _simulateTap: Platform channel call successful');
-
-      developer.log(
-        'Tap simulated at ($x, $y)',
-        name: 'WebRTCService',
-      );
     } on PlatformException catch (e) {
-      print('🔴 [WebRTCService] _simulateTap: Platform exception: ${e.code} - ${e.message}');
-
       developer.log(
         'Failed to simulate tap via platform channel',
         name: 'WebRTCService',
         error: e,
       );
     } catch (e) {
-      print('🔴 [WebRTCService] _simulateTap: Unexpected error: $e');
-
       developer.log(
         'Unexpected error simulating tap',
         name: 'WebRTCService',
@@ -349,40 +322,24 @@ class WebRTCService {
   /// Creates SDP offer and sends it via signaling
   Future<void> _createOffer() async {
     try {
-      print('🟢 [WebRTCService] _createOffer: Starting...');
-      final totalStart = DateTime.now();
-
       // Create offer
-      print('🟢 [WebRTCService] _createOffer: Step 4.1 - Calling createOffer()...');
-      final step1Start = DateTime.now();
       final RTCSessionDescription offer =
           await _peerConnection!.createOffer();
-      final step1Duration = DateTime.now().difference(step1Start);
-      print('⏱️  [WebRTCService] _createOffer: Step 4.1 - createOffer() took ${step1Duration.inMilliseconds}ms (${(step1Duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
 
       // Set as local description
-      print('🟢 [WebRTCService] _createOffer: Step 4.2 - Calling setLocalDescription()...');
-      final step2Start = DateTime.now();
       await _peerConnection!.setLocalDescription(offer);
-      final step2Duration = DateTime.now().difference(step2Start);
-      print('⏱️  [WebRTCService] _createOffer: Step 4.2 - setLocalDescription() took ${step2Duration.inMilliseconds}ms (${(step2Duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
-
-      print('🟢 [WebRTCService] _createOffer: SDP offer created (${offer.sdp?.length} chars)');
 
       // Send offer via signaling service
-      print('🟢 [WebRTCService] _createOffer: Step 4.3 - Sending offer to Firestore...');
-      final step3Start = DateTime.now();
       await _signalingService.setOffer(
         _currentSessionCode!,
         offer.sdp!,
       );
-      final step3Duration = DateTime.now().difference(step3Start);
-      print('⏱️  [WebRTCService] _createOffer: Step 4.3 - Firestore setOffer() took ${step3Duration.inMilliseconds}ms (${(step3Duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
-
-      final totalDuration = DateTime.now().difference(totalStart);
-      print('✅ [WebRTCService] _createOffer: Completed in ${totalDuration.inMilliseconds}ms (${(totalDuration.inMilliseconds / 1000).toStringAsFixed(1)}s) total');
     } catch (e) {
-      print('🔴 [WebRTCService] _createOffer: Failed - $e');
+      developer.log(
+        'Failed to create offer',
+        name: 'WebRTCService',
+        error: e,
+      );
       throw Exception('Failed to create offer: $e');
     }
   }
@@ -418,10 +375,10 @@ class WebRTCService {
   /// Handles SDP answer from client
   Future<void> _handleAnswer(String sdp) async {
     try {
-      developer.log(
-        'Handling SDP answer from client',
-        name: 'WebRTCService',
-      );
+      // Only process answer once
+      if (_answerReceived) {
+        return;
+      }
 
       final RTCSessionDescription answer = RTCSessionDescription(
         sdp,
@@ -429,6 +386,9 @@ class WebRTCService {
       );
 
       await _peerConnection!.setRemoteDescription(answer);
+
+      // Mark answer as received
+      _answerReceived = true;
 
       developer.log(
         'Remote description (answer) set',
@@ -587,6 +547,9 @@ class WebRTCService {
 
       // Clear session code
       _currentSessionCode = null;
+
+      // Reset answer flag
+      _answerReceived = false;
 
       // Close stream controller
       await _connectionStateController.close();

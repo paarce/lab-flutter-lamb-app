@@ -3,6 +3,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/remote_viewer_provider.dart';
+import '../services/error_handler_service.dart';
 import 'client_connect_screen.dart';
 
 /// Screen for viewing remote host screen and sending touch events
@@ -35,9 +36,8 @@ class _ClientViewerScreenState extends State<ClientViewerScreen> {
     try {
       await _renderer.initialize();
       setState(() => _rendererInitialized = true);
-      print('✅ [ClientViewerScreen] Renderer initialized');
     } catch (e) {
-      print('🔴 [ClientViewerScreen] Failed to initialize renderer: $e');
+      debugPrint('Failed to initialize renderer: $e');
     }
   }
 
@@ -54,6 +54,22 @@ class _ClientViewerScreenState extends State<ClientViewerScreen> {
       body: SafeArea(
         child: Consumer<RemoteViewerProvider>(
           builder: (context, provider, child) {
+            // Check for errors and display them using ErrorHandlerService
+            if (provider.lastError != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && provider.lastError != null) {
+                  ErrorHandlerService.handleError(
+                    context: context,
+                    error: provider.lastError!,
+                    service: 'RemoteViewerProvider',
+                    canRetry: provider.lastError!.canRetry,
+                    onRetry: null, // Can't retry from viewer screen
+                  );
+                  provider.clearError();
+                }
+              });
+            }
+
             // Listen for disconnections and navigate back
             if (provider.status == RemoteViewerStatus.disconnected &&
                 ModalRoute.of(context)?.isCurrent == true) {
@@ -73,7 +89,6 @@ class _ClientViewerScreenState extends State<ClientViewerScreen> {
                 provider.remoteStream != null &&
                 _renderer.srcObject != provider.remoteStream) {
               _renderer.srcObject = provider.remoteStream;
-              print('✅ [ClientViewerScreen] Remote stream set to renderer');
             }
 
             return Stack(
@@ -212,16 +227,12 @@ class _ClientViewerScreenState extends State<ClientViewerScreen> {
         adjustedX > displayWidth ||
         adjustedY < 0 ||
         adjustedY > displayHeight) {
-      print('🔴 [ClientViewerScreen] Tap outside video bounds');
       return;
     }
 
     // Normalize coordinates (0.0 - 1.0)
     final normalizedX = adjustedX / displayWidth;
     final normalizedY = adjustedY / displayHeight;
-
-    print('🔵 [ClientViewerScreen] Tap: screen=(${details.localPosition.dx}, ${details.localPosition.dy}), '
-        'video=($adjustedX, $adjustedY), normalized=($normalizedX, $normalizedY)');
 
     // Send touch event to host
     provider.sendTouch(normalizedX, normalizedY);

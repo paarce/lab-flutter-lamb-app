@@ -2,7 +2,13 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+
+import '../errors/app_error.dart';
+import '../errors/error_category.dart';
+import '../errors/error_codes.dart';
 import '../models/remote_session.dart';
+import 'error_handler_service.dart';
 
 /// Service for managing remote control sessions via Firebase Firestore
 ///
@@ -28,52 +34,63 @@ class FirebaseSignalingService {
   /// Generates a unique 6-digit code and stores the session in Firestore.
   /// The session expires after 15 minutes.
   ///
+  /// [hostDeviceId] Optional device identifier for the host
+  /// [context] BuildContext for error handling (optional)
+  ///
   /// Returns the created [RemoteSession]
   ///
-  /// Throws [Exception] if session creation fails
-  Future<RemoteSession> createSession({String? hostDeviceId}) async {
+  /// Throws [AppError] if session creation fails
+  Future<RemoteSession> createSession({
+    String? hostDeviceId,
+    BuildContext? context,
+  }) async {
     try {
       print('🟡 [FirebaseSignaling] Creating new remote session');
 
       // Generate new session
       final session = RemoteSession.create(hostDeviceId: hostDeviceId);
-      print('🟡 [FirebaseSignaling] Generated session code: ${session.sessionCode}');
+      print(
+          '🟡 [FirebaseSignaling] Generated session code: ${session.sessionCode}');
 
       print('🟡 [FirebaseSignaling] Storing session in Firestore...');
       final startTime = DateTime.now();
 
       // Store in Firestore with session code as document ID
-      // NO TIMEOUT - Let's see how long it REALLY takes
       await _sessionsCollection
           .doc(session.sessionCode)
           .set(session.toFirestore());
 
       final duration = DateTime.now().difference(startTime);
-      print('✅ [FirebaseSignaling] Session created successfully: ${session.sessionCode}');
-      print('⏱️  [FirebaseSignaling] createSession() took: ${duration.inMilliseconds}ms (${(duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
+      print(
+          '✅ [FirebaseSignaling] Session created successfully: ${session.sessionCode}');
+      print(
+          '⏱️  [FirebaseSignaling] createSession() took: ${duration.inMilliseconds}ms (${(duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
 
       return session;
     } catch (e, stackTrace) {
       // Parse error message to provide user-friendly feedback
       final errorString = e.toString().toLowerCase();
 
+      AppError appError;
+
       // Check for common Firestore errors
       if (errorString.contains('permission') ||
           errorString.contains('permission_denied')) {
         developer.log(
-          'CRITICAL: Firestore permission denied. '
-          'Cloud Firestore API may not be enabled.',
+          'CRITICAL: Firestore permission denied',
           name: 'FirebaseSignalingService',
           error: e,
           stackTrace: stackTrace,
-          level: 1000, // ERROR level
         );
 
-        throw Exception(
-          'Cloud Firestore no está habilitado. '
-          'Por favor, habilita Firestore en Firebase Console:\n'
-          'https://console.firebase.google.com/project/_/firestore\n\n'
-          'Instrucciones detalladas en: .claude/docs/SETUP_COMPLETADO.md',
+        appError = AppError(
+          category: ErrorCategory.firebase,
+          code: ErrorCodes.fbFirestoreFailed,
+          technicalMessage: e.toString(),
+          userMessage:
+              'Cloud Firestore no está habilitado. Por favor, habilita Firestore en Firebase Console.',
+          canRetry: false,
+          stackTrace: stackTrace,
         );
       } else if (errorString.contains('offline') ||
           errorString.contains('network')) {
@@ -81,37 +98,67 @@ class FirebaseSignalingService {
           'Firestore network error',
           name: 'FirebaseSignalingService',
           error: e,
-          level: 900, // WARNING level
         );
 
-        throw Exception(
-          'Sin conexión a internet. '
-          'Verifica que estés conectado a WiFi o datos móviles.',
+        appError = AppError(
+          category: ErrorCategory.network,
+          code: ErrorCodes.netNoInternet,
+          technicalMessage: e.toString(),
+          userMessage:
+              'Sin conexión a internet. Verifica WiFi o datos móviles.',
+          canRetry: true,
+          stackTrace: stackTrace,
         );
       } else if (errorString.contains('timeout')) {
         developer.log(
           'Firestore operation timed out',
           name: 'FirebaseSignalingService',
           error: e,
-          level: 900,
         );
 
-        throw Exception(
-          'La operación tardó demasiado. '
-          'Intenta de nuevo o verifica tu conexión.',
+        appError = AppError(
+          category: ErrorCategory.network,
+          code: ErrorCodes.netTimeout,
+          technicalMessage: e.toString(),
+          userMessage:
+              'La operación tardó demasiado. Intenta de nuevo o verifica tu conexión.',
+          canRetry: true,
+          stackTrace: stackTrace,
+        );
+      } else {
+        // Generic error
+        developer.log(
+          'Failed to create session (unknown error)',
+          name: 'FirebaseSignalingService',
+          error: e,
+          stackTrace: stackTrace,
+        );
+
+        appError = AppError(
+          category: ErrorCategory.firebase,
+          code: ErrorCodes.fbFirestoreFailed,
+          technicalMessage: e.toString(),
+          userMessage: 'Error al crear sesión remota.',
+          canRetry: true,
+          stackTrace: stackTrace,
         );
       }
 
-      // Generic error
-      developer.log(
-        'Failed to create session (unknown error)',
-        name: 'FirebaseSignalingService',
-        error: e,
-        stackTrace: stackTrace,
-        level: 1000,
-      );
+      // Show user-friendly error if context available
+      if (context != null && context.mounted) {
+        await ErrorHandlerService.handleError(
+          context: context,
+          error: appError,
+          service: 'FirebaseSignalingService',
+          canRetry: appError.canRetry,
+          onRetry: () => createSession(
+            hostDeviceId: hostDeviceId,
+            context: context,
+          ),
+        );
+      }
 
-      throw Exception('Error al crear sesión remota: ${e.toString()}');
+      throw appError;
     }
   }
 

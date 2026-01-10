@@ -4,6 +4,9 @@ import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import '../errors/app_error.dart';
+import '../errors/error_category.dart';
+import '../errors/error_codes.dart';
 import '../models/remote_session.dart';
 import '../services/elevenlabs_service.dart';
 import '../services/firebase_signaling_service.dart';
@@ -52,6 +55,18 @@ class RemoteControlProvider extends ChangeNotifier {
   String? _errorMessage;
 
   String? get errorMessage => _errorMessage;
+
+  /// Last error that occurred (for detailed error handling)
+  AppError? _lastError;
+
+  AppError? get lastError => _lastError;
+
+  /// Clears the last error
+  void clearError() {
+    _lastError = null;
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   /// Stream subscription for session updates
   StreamSubscription<RemoteSession?>? _sessionSubscription;
@@ -155,6 +170,15 @@ class RemoteControlProvider extends ChangeNotifier {
 
       print('🔴 [RemoteControlProvider] Error message: $errorMessage');
 
+      // Create AppError instance for detailed error handling
+      _lastError = AppError(
+        category: ErrorCategory.webRTC,
+        code: ErrorCodes.wrtcConnectionFailed,
+        technicalMessage: e.toString(),
+        userMessage: errorMessage,
+        canRetry: true,
+      );
+
       _setError(errorMessage);
       _setStatus(RemoteControlStatus.error);
 
@@ -171,6 +195,17 @@ class RemoteControlProvider extends ChangeNotifier {
       // TODO: Implement centralized error reporting service in FUNCIONALIDAD 2.1
       // This should log errors to Firebase Crashlytics or similar service
       // for monitoring production issues.
+
+      // Create AppError instance for detailed error handling
+      _lastError = AppError(
+        category: ErrorCategory.unknown,
+        code: ErrorCodes.unknownError,
+        technicalMessage: e.toString(),
+        userMessage: 'Error inesperado al iniciar la sesión. '
+            'Por favor, cierra y vuelve a abrir la aplicación.',
+        canRetry: false,
+        stackTrace: stackTrace,
+      );
 
       _setError(
         'Error inesperado al iniciar la sesión. '
@@ -260,6 +295,13 @@ class RemoteControlProvider extends ChangeNotifier {
           _cleanup();
           break;
         case RemoteSessionStatus.failed:
+          _lastError = AppError(
+            category: ErrorCategory.webRTC,
+            code: ErrorCodes.wrtcConnectionFailed,
+            technicalMessage: 'Session status changed to failed',
+            userMessage: 'Conexión fallida',
+            canRetry: true,
+          );
           _setStatus(RemoteControlStatus.error);
           _setError('Conexión fallida');
           _cleanup();
@@ -292,6 +334,13 @@ class RemoteControlProvider extends ChangeNotifier {
           _setStatus(RemoteControlStatus.connected);
           break;
         case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
+          _lastError = AppError(
+            category: ErrorCategory.webRTC,
+            code: ErrorCodes.wrtcConnectionFailed,
+            technicalMessage: 'Peer connection state failed',
+            userMessage: 'Conexión WebRTC fallida',
+            canRetry: true,
+          );
           _setStatus(RemoteControlStatus.error);
           _setError('Conexión WebRTC fallida');
           break;

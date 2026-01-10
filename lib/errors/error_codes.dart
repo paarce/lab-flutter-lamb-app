@@ -27,9 +27,13 @@ abstract class ErrorCodes {
   static const String wrtcPeerNotFound = 'PEER_NOT_FOUND';
   static const String wrtcIceTimeout = 'ICE_TIMEOUT';
   static const String wrtcMediaPermissionDenied = 'MEDIA_PERMISSION_DENIED';
+  static const String wrtcSessionExpired = 'SESSION_EXPIRED';
 
   // NETWORK
   static const String netNoInternet = 'NO_INTERNET';
   static const String netTimeout = 'TIMEOUT';
   static const String netConnectionUnstable = 'CONNECTION_UNSTABLE';
+
+  // UNKNOWN
+  static const String unknownError = 'UNKNOWN_ERROR';
 }
