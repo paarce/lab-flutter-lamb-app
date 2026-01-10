@@ -307,9 +307,14 @@ class WebRTCClientService {
 
     if (event.track.kind == 'video' && event.streams.isNotEmpty) {
       _remoteStream = event.streams.first;
-      _remoteStreamController.add(_remoteStream!);
 
-      print('✅ [WebRTCClient] _onTrack: Remote stream set (id: ${_remoteStream!.id})');
+      // Only add to controller if not closed
+      if (!_remoteStreamController.isClosed) {
+        _remoteStreamController.add(_remoteStream!);
+        print('✅ [WebRTCClient] _onTrack: Remote stream set (id: ${_remoteStream!.id})');
+      } else {
+        print('⚠️  [WebRTCClient] _onTrack: Stream controller closed, cannot add stream');
+      }
 
       developer.log(
         'Remote stream set: ${_remoteStream!.id}',
@@ -377,7 +382,13 @@ class WebRTCClientService {
     );
 
     _connectionState = state;
-    _connectionStateController.add(state);
+
+    // Only add to controller if not closed
+    if (!_connectionStateController.isClosed) {
+      _connectionStateController.add(state);
+    } else {
+      print('⚠️  [WebRTCClient] _onConnectionStateChange: Controller closed, cannot add state');
+    }
 
     // Update session status in Firestore
     if (_currentSessionCode != null) {
