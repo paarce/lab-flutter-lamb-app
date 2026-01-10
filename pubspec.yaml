@@ -52,6 +52,9 @@ dependencies:
   # WebSocket para ElevenLabs STT
   web_socket_channel: ^2.4.0
 
+  # Text-to-Speech (TTS) nativo - Motor Android/iOS
+  flutter_tts: ^4.2.5
+
   # Audio playback para TTS
   audioplayers: ^5.2.1
 

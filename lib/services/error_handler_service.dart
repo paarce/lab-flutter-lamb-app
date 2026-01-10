@@ -8,8 +8,8 @@ import '../errors/app_error.dart';
 import '../errors/error_category.dart';
 import '../errors/error_codes.dart';
 import '../utils/error_messages.dart';
-import 'elevenlabs_service.dart';
 import 'logger_service.dart';
+import 'tts/tts_factory.dart';
 
 /// SERVICIO CENTRAL de gestión de errores
 ///
@@ -46,14 +46,12 @@ class ErrorHandlerService {
   /// - service: Nombre del servicio donde ocurrió (para logs)
   /// - canRetry: ¿Se puede reintentar? (muestra botón "Reintentar")
   /// - onRetry: Callback si usuario presiona "Reintentar"
-  /// - ttsService: (Opcional) Para reproducir error con TTS
   static Future<void> handleError({
     required BuildContext context,
     required dynamic error,
     required String service,
     bool canRetry = false,
     VoidCallback? onRetry,
-    ElevenLabsService? ttsService,
   }) async {
     // Paso 1: Normalizar el error a AppError
     final appError = _normalizeError(error, service);
@@ -69,14 +67,13 @@ class ErrorHandlerService {
     // Paso 3: Obtener mensaje accesible
     final userMessage = ErrorMessages.getUserMessage(appError);
 
-    // Paso 4: Reproducir con TTS si servicio disponible
-    if (ttsService != null) {
-      try {
-        await ttsService.speak(userMessage);
-      } catch (e) {
-        _logger.error('Error al reproducir TTS', tag: 'ErrorHandlerService');
-        // Continuar incluso si TTS falla
-      }
+    // Paso 4: Reproducir con TTS usando TTSFactory
+    try {
+      final ttsService = TTSFactory.getInstance();
+      await ttsService.speak(userMessage);
+    } catch (e) {
+      _logger.error('Error al reproducir TTS', tag: 'ErrorHandlerService');
+      // Continuar incluso si TTS falla
     }
 
     // Paso 5: Mostrar diálogo modal accesible

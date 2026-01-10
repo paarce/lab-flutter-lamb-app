@@ -70,8 +70,7 @@ class RemoteControlProvider extends ChangeNotifier {
     // Initialize foreground service (required for Android 14+ MediaProjection)
     _foregroundService = ForegroundService();
 
-    // Initialize TTS service
-    _ttsService.initialize();
+    // TTS service is now auto-initialized via TTSFactory singleton
   }
 
   /// Starts a new remote control session
@@ -359,7 +358,8 @@ class RemoteControlProvider extends ChangeNotifier {
         break;
     }
 
-    _ttsService.speak(message);
+    // TTS is now handled via TTSFactory singleton, not through provider
+    // _ttsService.speak(message);
   }
 
   /// Sets an error message

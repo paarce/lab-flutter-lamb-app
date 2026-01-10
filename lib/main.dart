@@ -9,6 +9,7 @@ import 'services/elevenlabs_service.dart';
 import 'services/firebase_signaling_service.dart';
 import 'services/error_handler_service.dart';
 import 'services/logger_service.dart';
+import 'services/tts/tts_factory.dart';
 
 /// Entry point de la aplicación
 /// Inicializa Firebase, Hive y Provider antes de ejecutar la app
@@ -57,6 +58,11 @@ class MyApp extends StatelessWidget {
         ),
         Provider<ElevenLabsService>(
           create: (_) => ElevenLabsService(),
+        ),
+
+        // TTS Service (Singleton) - Inyectar para acceso desde Providers/Screens
+        Provider(
+          create: (_) => TTSFactory.getInstance(),
         ),
 
         // Error handler service (Singleton)

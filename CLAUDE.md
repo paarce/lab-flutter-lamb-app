@@ -31,8 +31,13 @@ El proyecto está en su fase inicial con la infraestructura base configurada y l
 - **Dart:** 3.0+
 - **State Management:** Provider
 
-### Servicios
-- **STT/TTS:** ElevenLabs Scribe v2 (principal), Android SpeechRecognizer (fallback)
+### Servicios de Voz
+- **STT (Speech-to-Text):** ElevenLabs Scribe v2 WebSocket (ultra-baja latencia 150ms, alta precisión)
+- **TTS (Text-to-Speech):** 
+  - **Implementación activa:** flutter_tts (motor nativo Android/iOS, gratis, offline, latencia 50-200ms)
+  - **Alternativas escalables:** Google Cloud TTS, Azure Cognitive Services (ambas en skeleton, listas para implementar)
+
+### Otros Servicios
 - **Control Remoto:** WebRTC custom + Firebase Firestore (signaling)
 - **Base de datos local:** Hive
 
@@ -59,6 +64,9 @@ permission_handler: ^11.1.0
 http: ^1.1.0
 dio: ^5.4.0
 web_socket_channel: ^2.4.0
+
+# Text-to-Speech (TTS)
+flutter_tts: ^0.0.45  # Motor nativo Android/iOS
 
 # Storage
 hive: ^2.2.3
@@ -87,7 +95,15 @@ lib/
 │   ├── whatsapp_screen.dart              🔜 Próxima funcionalidad
 │   └── remote_control_screen.dart        🔜 Próxima funcionalidad
 ├── services/
-│   ├── elevenlabs_service.dart           ✅ STT/TTS
+│   ├── elevenlabs_service.dart           ✅ STT (Speech-to-Text)
+│   ├── tts/                              ✅ ABSTRACCIÓN ESCALABLE DE TTS
+│   │   ├── tts_service.dart              ✅ Interfaz abstracta
+│   │   ├── tts_config.dart               ✅ Configuración global
+│   │   ├── tts_factory.dart              ✅ Factory singleton
+│   │   └── implementations/
+│   │       ├── flutter_tts_service.dart  ✅ Implementación activa (nativa)
+│   │       ├── google_cloud_tts_service.dart  🔜 Skeleton futuro
+│   │       └── azure_tts_service.dart    🔜 Skeleton futuro
 │   ├── firebase_signaling_service.dart   ✅ Firebase Signaling
 │   ├── webrtc_client_service.dart        ✅ WebRTC Client
 │   ├── webrtc_service.dart               ✅ WebRTC Base
@@ -381,23 +397,65 @@ git clone https://github.com/rustdesk/rustdesk.git
 
 ---
 
-## Integración ElevenLabs
+## Estrategia de Voz: STT vs TTS
 
-### STT (WebSocket)
+### STT (Speech-to-Text) - ElevenLabs Scribe v2
+ElevenLabs sigue siendo la solución principal para STT:
+- Ultra-baja latencia: 150ms
+- Alta precisión para adultos mayores
+- Soporte 90+ idiomas (incluido español)
+- WebSocket para streaming realtime
+
 ```dart
 final channel = WebSocketChannel.connect(
-  Uri.parse('wss://api.elevenlabs.io/v1/speech-to-text/realtime')
+  Uri.parse('wss://api.elevenlabs.io/v1/speech-to-text/realtime?api_key=$apiKey'),
 );
 ```
 
-### TTS (REST)
+### TTS (Text-to-Speech) - Arquitectura Escalable
+
+**Cambio:** Migrado de ElevenLabs TTS a abstracción modular de proveedores TTS.
+
+#### Implementación Activa: flutter_tts (Nativa)
+- **Motor:** Android TTS nativo / iOS VoiceOver
+- **Costo:** Gratis
+- **Latencia:** 50-200ms (muy rápido)
+- **Ventaja:** Offline, confiable, contraseña, accesible
+- **Desventaja:** Voz menos natural que ElevenLabs
+
 ```dart
-await http.post(
-  Uri.parse('https://api.elevenlabs.io/v1/text-to-speech/$voiceId'),
-  headers: {'xi-api-key': Secrets.elevenLabsApiKey},
-  body: json.encode({'text': text})
-);
+// Usar desde cualquier lado via TTSFactory
+final ttsService = TTSFactory.getInstance();
+await ttsService.speak('Hola mundo');
 ```
+
+#### Alternativas Escalables (Ready to Implement)
+- **Google Cloud TTS:** Voces naturales, $16/1M caracteres
+- **Azure Cognitive Services:** Estilos expresivos, ~$15/1M caracteres
+- Ambas están en skeleton (`lib/services/tts/implementations/`), listas para implementar cuando necesites
+
+#### Configuración (Global)
+```dart
+// lib/services/tts/tts_config.dart
+class TTSConfig {
+  static const String language = 'es-ES';
+  static const double pitch = 1.0;
+  static const double speed = 1.0;
+  static const double volume = 1.0;
+}
+```
+
+#### Seleccionar Proveedor
+```dart
+// lib/config/secrets.dart
+static const String ttsProvider = 'flutter_tts'; // o 'google_cloud', 'azure'
+```
+
+**Ventajas del diseño:**
+- ✅ Cambiar proveedor SIN tocar código Dart
+- ✅ Multi-proveedor en la misma app (diferente funcionalidad)
+- ✅ Escalable: agregar nuevos proveedores sin romper nada
+- ✅ Testing fácil: usar un proveedor diferente
 
 ---
 

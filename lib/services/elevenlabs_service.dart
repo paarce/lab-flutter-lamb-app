@@ -1,295 +1,120 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io';
 
-import 'package:audioplayers/audioplayers.dart';
-import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../config/secrets.dart';
 
-/// Service for Text-to-Speech using ElevenLabs API
+/// Service for Speech-to-Text (STT) using ElevenLabs Scribe v2 API
 ///
-/// Features:
-/// - High-quality TTS with natural Spanish voices
-/// - Message queue to avoid interruptions
-/// - Fallback to Android TTS if API fails (TODO: implement fallback)
+/// Características:
+/// - Ultra-baja latencia (150ms) para comandos de voz en tiempo real
+/// - Soporte para 90+ idiomas incluido español
+/// - Precisión excelente para usuario adulto mayor
+/// - WebSocket para streaming realtime
+///
+/// NOTA: Para Text-to-Speech (TTS), usa TTSFactory en lugar de este servicio.
+/// Esto mantiene separadas las responsabilidades: ElevenLabs para STT, flutter_tts para TTS.
 class ElevenLabsService {
-  static const String _baseUrl = 'https://api.elevenlabs.io';
+  static const String _baseUrl = 'wss://api.elevenlabs.io/v1/speech-to-text';
 
-  /// Audio player for TTS playback
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  WebSocketChannel? _channel;
+  bool _isListening = false;
+  late StreamSubscription? _subscription;
 
-  /// Queue of pending TTS messages
-  final List<String> _messageQueue = [];
-
-  /// Whether a message is currently being spoken
-  bool _isSpeaking = false;
-
-  /// Whether the service is initialized
-  bool _isInitialized = false;
-
-  /// Initializes the TTS service
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-
-    try {
-      developer.log(
-        'Initializing ElevenLabs TTS service',
-        name: 'ElevenLabsService',
-      );
-
-      // Setup audio player
-      await _audioPlayer.setReleaseMode(ReleaseMode.stop);
-
-      // Listen for completion events
-      _audioPlayer.onPlayerComplete.listen((_) {
-        _onSpeakComplete();
-      });
-
-      _isInitialized = true;
-
-      developer.log(
-        'ElevenLabs TTS service initialized',
-        name: 'ElevenLabsService',
-      );
-    } catch (e, stackTrace) {
-      developer.log(
-        'Failed to initialize ElevenLabs service',
-        name: 'ElevenLabsService',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      // Don't throw - service can still work without initialization
-    }
-  }
-
-  /// Speaks the given text using ElevenLabs TTS
+  /// Inicia grabación y reconocimiento de voz en tiempo real
   ///
-  /// Adds message to queue if already speaking
-  Future<void> speak(String text) async {
-    if (text.isEmpty) return;
-
-    developer.log(
-      'Speak request: $text',
-      name: 'ElevenLabsService',
-    );
-
-    // Add to queue
-    _messageQueue.add(text);
-
-    // Process queue if not already speaking
-    if (!_isSpeaking) {
-      await _processQueue();
-    }
-  }
-
-  /// Processes the message queue
-  Future<void> _processQueue() async {
-    while (_messageQueue.isNotEmpty) {
-      _isSpeaking = true;
-
-      final message = _messageQueue.removeAt(0);
-
-      try {
-        await _speakText(message);
-      } catch (e) {
-        developer.log(
-          'Failed to speak text: $message',
-          name: 'ElevenLabsService',
-          error: e,
-        );
-        // Continue with next message
-      }
-
-      // Wait a bit between messages
-      await Future.delayed(const Duration(milliseconds: 500));
+  /// Retorna un Stream que emite fragmentos de texto conforme se reconoce
+  /// Debe ser escuchado continuamente hasta que se llame [stopListening]
+  Stream<String> startListening() async* {
+    if (_isListening) {
+      developer.log(
+        'Ya hay un reconocimiento activo',
+        name: 'ElevenLabsService',
+      );
+      return;
     }
 
-    _isSpeaking = false;
-  }
-
-  /// Speaks a single text message using ElevenLabs API
-  Future<void> _speakText(String text) async {
     try {
+      _isListening = true;
+
       developer.log(
-        'Synthesizing speech for: $text',
+        'Iniciando reconocimiento de voz con ElevenLabs Scribe',
         name: 'ElevenLabsService',
       );
 
-      // Call ElevenLabs TTS API
-      final audioBytes = await _synthesizeSpeech(text);
-
-      if (audioBytes == null) {
-        developer.log(
-          'Failed to synthesize speech',
-          name: 'ElevenLabsService',
-        );
-        return;
-      }
-
-      // Save audio to temporary file
-      final tempFile = await _saveTempAudio(audioBytes);
-
-      // Play audio
-      await _audioPlayer.play(DeviceFileSource(tempFile.path));
-
-      // Wait for playback to complete
-      await _waitForPlayback();
-
-      // Clean up temp file
-      try {
-        await tempFile.delete();
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-
-      developer.log(
-        'Speech synthesis completed',
-        name: 'ElevenLabsService',
+      // Conectar a WebSocket de ElevenLabs
+      _channel = WebSocketChannel.connect(
+        Uri.parse('$_baseUrl/realtime?api_key=${Secrets.elevenLabsApiKey}'),
       );
+
+      // Escuchar mensajes del servidor
+      yield* _channel!.stream.map<String>((dynamic message) {
+        try {
+          final data = json.decode(message as String);
+
+          // ElevenLabs Scribe envía fragmentos bajo "transcript" o "text"
+          final transcript = data['transcript'] ?? data['text'] ?? '';
+
+          if (transcript.isNotEmpty) {
+            developer.log(
+              'STT reconocido: $transcript',
+              name: 'ElevenLabsService',
+            );
+          }
+
+          return transcript;
+        } catch (e) {
+          developer.log(
+            'Error parseando respuesta STT',
+            name: 'ElevenLabsService',
+            error: e,
+          );
+          return '';
+        }
+      });
     } catch (e, stackTrace) {
+      _isListening = false;
+
       developer.log(
-        'Failed to speak text',
+        'Error iniciando reconocimiento de voz',
         name: 'ElevenLabsService',
         error: e,
         stackTrace: stackTrace,
       );
-      rethrow;
+
+      yield ''; // Emitir vacío para señalar error
     }
   }
 
-  /// Calls ElevenLabs API to synthesize speech
-  Future<List<int>?> _synthesizeSpeech(String text) async {
+  /// Detiene el reconocimiento de voz activo
+  Future<void> stopListening() async {
     try {
-      final url = Uri.parse(
-        '$_baseUrl/v1/text-to-speech/${Secrets.elevenLabsVoiceId}',
-      );
+      _isListening = false;
+      await _subscription?.cancel();
+      await _channel?.sink.close();
 
       developer.log(
-        'Calling ElevenLabs API',
-        name: 'ElevenLabsService',
-      );
-
-      final response = await http.post(
-        url,
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': Secrets.elevenLabsApiKey,
-        },
-        body: json.encode({
-          'text': text,
-          'model_id': 'eleven_multilingual_v2',
-          'voice_settings': {
-            'stability': 0.5,
-            'similarity_boost': 0.75,
-            'style': 0.0,
-            'use_speaker_boost': true,
-          },
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        developer.log(
-          'Speech synthesized successfully',
-          name: 'ElevenLabsService',
-        );
-        return response.bodyBytes;
-      } else {
-        developer.log(
-          'ElevenLabs API error: ${response.statusCode} - ${response.body}',
-          name: 'ElevenLabsService',
-        );
-        return null;
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        'Failed to call ElevenLabs API',
-        name: 'ElevenLabsService',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      return null;
-    }
-  }
-
-  /// Saves audio bytes to a temporary file
-  Future<File> _saveTempAudio(List<int> audioBytes) async {
-    final tempDir = Directory.systemTemp;
-    final tempFile = File(
-      '${tempDir.path}/tts_${DateTime.now().millisecondsSinceEpoch}.mp3',
-    );
-
-    await tempFile.writeAsBytes(audioBytes);
-
-    return tempFile;
-  }
-
-  /// Waits for audio playback to complete
-  Future<void> _waitForPlayback() async {
-    final completer = Completer<void>();
-
-    StreamSubscription? subscription;
-    subscription = _audioPlayer.onPlayerComplete.listen((_) {
-      subscription?.cancel();
-      completer.complete();
-    });
-
-    // Timeout after 30 seconds
-    await completer.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {
-        subscription?.cancel();
-        _audioPlayer.stop();
-      },
-    );
-  }
-
-  /// Called when speech playback completes
-  void _onSpeakComplete() {
-    developer.log(
-      'Speech playback completed',
-      name: 'ElevenLabsService',
-    );
-  }
-
-  /// Stops current speech
-  Future<void> stop() async {
-    try {
-      await _audioPlayer.stop();
-      _messageQueue.clear();
-      _isSpeaking = false;
-
-      developer.log(
-        'Speech stopped',
+        'Reconocimiento de voz detenido',
         name: 'ElevenLabsService',
       );
     } catch (e) {
       developer.log(
-        'Failed to stop speech',
+        'Error deteniendo reconocimiento',
         name: 'ElevenLabsService',
         error: e,
       );
     }
   }
 
-  /// Disposes the service
+  /// Limpia recursos
   Future<void> dispose() async {
-    try {
-      await stop();
-      await _audioPlayer.dispose();
+    await stopListening();
 
-      developer.log(
-        'ElevenLabsService disposed',
-        name: 'ElevenLabsService',
-      );
-    } catch (e) {
-      developer.log(
-        'Error disposing ElevenLabsService',
-        name: 'ElevenLabsService',
-        error: e,
-      );
-    }
+    developer.log(
+      'ElevenLabsService dispuesto',
+      name: 'ElevenLabsService',
+    );
   }
 }
