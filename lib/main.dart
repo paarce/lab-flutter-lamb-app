@@ -56,10 +56,6 @@ class MyApp extends StatelessWidget {
         Provider<FirebaseSignalingService>(
           create: (_) => FirebaseSignalingService(),
         ),
-        Provider<ElevenLabsService>(
-          create: (_) => ElevenLabsService(),
-        ),
-
         // TTS Service (Singleton) - Inyectar para acceso desde Providers/Screens
         Provider(
           create: (_) => TTSFactory.getInstance(),
@@ -74,7 +70,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<RemoteControlProvider>(
           create: (context) => RemoteControlProvider(
             signalingService: context.read<FirebaseSignalingService>(),
-            ttsService: context.read<ElevenLabsService>(),
           ),
         ),
       ],

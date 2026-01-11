@@ -8,17 +8,16 @@ import '../errors/app_error.dart';
 import '../errors/error_category.dart';
 import '../errors/error_codes.dart';
 import '../models/remote_session.dart';
-import '../services/elevenlabs_service.dart';
 import '../services/firebase_signaling_service.dart';
 import '../services/foreground_service.dart';
 import '../services/webrtc_service.dart';
+import '../services/tts/tts_factory.dart';
 
 /// State management provider for remote control sessions
 ///
 /// Orchestrates:
 /// - FirebaseSignalingService (session management & signaling)
 /// - WebRTCService (peer connection & MediaProjection via flutter_webrtc)
-/// - ElevenLabsService (TTS announcements)
 ///
 /// Note: Screen capture and MediaProjection are now handled entirely by
 /// flutter_webrtc plugin in WebRTCService.
@@ -29,7 +28,6 @@ import '../services/webrtc_service.dart';
 /// - sessionCode, connectionStatus, etc.
 class RemoteControlProvider extends ChangeNotifier {
   final FirebaseSignalingService _signalingService;
-  final ElevenLabsService _ttsService;
   late final WebRTCService _webrtcService;
   late final ForegroundService _foregroundService;
 
@@ -76,9 +74,7 @@ class RemoteControlProvider extends ChangeNotifier {
 
   RemoteControlProvider({
     required FirebaseSignalingService signalingService,
-    required ElevenLabsService ttsService,
-  })  : _signalingService = signalingService,
-        _ttsService = ttsService {
+  })  : _signalingService = signalingService {
     // Initialize WebRTC service
     _webrtcService = WebRTCService(signalingService: _signalingService);
 
@@ -363,14 +359,12 @@ class RemoteControlProvider extends ChangeNotifier {
       name: 'RemoteControlProvider',
     );
 
-    // Announce status change via TTS
     _announceStatus(status);
-
     notifyListeners();
   }
 
   /// Announces status changes via TTS
-  void _announceStatus(RemoteControlStatus status) {
+  Future<void> _announceStatus(RemoteControlStatus status) async {
     String message;
 
     switch (status) {
@@ -408,7 +402,8 @@ class RemoteControlProvider extends ChangeNotifier {
     }
 
     // TTS is now handled via TTSFactory singleton, not through provider
-    // _ttsService.speak(message);
+      final ttsService = TTSFactory.getInstance();
+      await ttsService.speak(message);
   }
 
   /// Sets an error message
@@ -477,7 +472,7 @@ class RemoteControlProvider extends ChangeNotifier {
     );
 
     _cleanup();
-    _ttsService.dispose();
+    TTSFactory.getInstance().stop();
     super.dispose();
   }
 }

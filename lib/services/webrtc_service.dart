@@ -37,8 +37,7 @@ class WebRTCService {
   String? _currentSessionCode;
 
   /// Stream controller for connection state changes
-  final _connectionStateController =
-      StreamController<RTCPeerConnectionState>.broadcast();
+  late StreamController<RTCPeerConnectionState> _connectionStateController;
 
   /// Stream of connection state changes
   Stream<RTCPeerConnectionState> get connectionStateStream =>
@@ -57,7 +56,10 @@ class WebRTCService {
       MethodChannel('com.accessibilityapp/foreground_service');
 
   WebRTCService({required FirebaseSignalingService signalingService})
-      : _signalingService = signalingService;
+      : _signalingService = signalingService {
+    // Initialize the stream controller
+    _connectionStateController = StreamController<RTCPeerConnectionState>.broadcast();
+  }
 
   /// STUN server configuration (Google public STUN servers)
   ///
@@ -111,6 +113,12 @@ class WebRTCService {
     try {
       _currentSessionCode = sessionCode;
       _answerReceived = false; // Reset flag for new session
+
+      // Reset stream controller if it was previously closed
+      if (_connectionStateController.isClosed) {
+        _connectionStateController =
+            StreamController<RTCPeerConnectionState>.broadcast();
+      }
 
       // Create peer connection
       await _createPeerConnection();
@@ -495,7 +503,11 @@ class WebRTCService {
     );
 
     _connectionState = state;
-    _connectionStateController.add(state);
+    
+    // Prevent adding events to a closed stream controller
+    if (!_connectionStateController.isClosed) {
+      _connectionStateController.add(state);
+    }
 
     // Update session status in Firestore
     if (_currentSessionCode != null) {
