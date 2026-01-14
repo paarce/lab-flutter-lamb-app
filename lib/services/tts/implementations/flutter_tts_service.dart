@@ -15,7 +15,7 @@ import '../tts_config.dart';
 /// - Motor: Usar motor TTS nativo del sistema Android/iOS
 /// - Voces disponibles: Las del sistema operativo
 class FlutterTtsService extends TTSService {
-  late final FlutterTts _flutterTts;
+  late FlutterTts _flutterTts;
   bool _isInitialized = false;
 
   /// Constructor por defecto
@@ -25,8 +25,12 @@ class FlutterTtsService extends TTSService {
 
   /// Inicializa el motor TTS nativo
   Future<void> _initialize() async {
-    _flutterTts = FlutterTts();
+    if (_isInitialized) {
+      return;
+    }
+
     try {
+      _flutterTts = FlutterTts();
       await _flutterTts.setLanguage(TTSConfig.language);
       await _flutterTts.setPitch(TTSConfig.pitch);
       await _flutterTts.setSpeechRate(TTSConfig.speed);
@@ -34,6 +38,7 @@ class FlutterTtsService extends TTSService {
       _isInitialized = true;
     } catch (e) {
       debugPrint('Error inicializando FlutterTts: $e');
+      rethrow;
     }
   }
 
@@ -57,13 +62,16 @@ class FlutterTtsService extends TTSService {
       });
 
       _flutterTts.setErrorHandler((message) {
+        debugPrint('TTS error: $message');
         onError?.call(message.toString());
       });
 
       // Reproducir
       await _flutterTts.speak(text);
     } catch (e) {
+      debugPrint('Error en TTS speak: $e');
       onError?.call(e.toString());
+      rethrow;
     }
   }
 

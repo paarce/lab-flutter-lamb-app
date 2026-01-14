@@ -1,8 +1,11 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/remote_control_provider.dart';
 import '../services/error_handler_service.dart';
+import '../services/tts/tts_factory.dart';
 import '../widgets/accessible_button.dart';
 import '../widgets/connection_status_indicator.dart';
 import '../widgets/session_code_display.dart';
@@ -23,6 +26,25 @@ class RemoteControlHostScreen extends StatefulWidget {
 }
 
 class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
+  bool _sessionAutoStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-start session when screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_sessionAutoStarted) {
+        _sessionAutoStarted = true;
+        final provider = context.read<RemoteControlProvider>();
+        if (provider.status == RemoteControlStatus.idle ||
+            provider.status == RemoteControlStatus.ended ||
+            provider.status == RemoteControlStatus.error) {
+          _startSession(provider);
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,97 +231,36 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
 
   /// Starts a new remote control session
   Future<void> _startSession(RemoteControlProvider provider) async {
-    // Show loading dialog (cancelable)
     if (!mounted) return;
 
-    // Track if dialog is still showing
-    bool dialogShowing = true;
-
-    showDialog(
-      context: context,
-      barrierDismissible: true, // Allow dismissing by tapping outside
-      builder: (context) => WillPopScope(
-        // Allow back button to dismiss
-        onWillPop: () async => true,
-        child: Semantics(
-          label: 'Iniciando sesión remota',
-          liveRegion: true,
-          child: Center(
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(strokeWidth: 4),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Iniciando sesión...',
-                      style: TextStyle(fontSize: 24),
-                    ),
-                    const SizedBox(height: 16),
-                    Semantics(
-                      label: 'Cancelar inicio de sesión',
-                      button: true,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          dialogShowing = false;
-                        },
-                        child: const Text(
-                          'Cancelar',
-                          style: TextStyle(fontSize: 20),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    // Start session without timeout to measure real performance
-    String? sessionCode;
+    // Feedback audible inmediato para usuario con baja visión
     try {
-      print('🔵 [RemoteControlHostScreen] Starting session (NO TIMEOUT - measuring real time)...');
-      final screenStart = DateTime.now();
-
-      sessionCode = await provider.startRemoteSession();
-
-      final screenDuration = DateTime.now().difference(screenStart);
-      print('🔵 [RemoteControlHostScreen] startRemoteSession completed. Result: $sessionCode');
-      print('⏱️  [RemoteControlHostScreen] Total time: ${screenDuration.inMilliseconds}ms (${(screenDuration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
+      final ttsService = TTSFactory.getInstance();
+      await ttsService.speak(
+        'Iniciando sesión remota. Por favor espera mientras se genera el código.',
+      );
     } catch (e) {
-      print('🔴 [RemoteControlHostScreen] Exception caught: $e');
-      // Handle any exceptions
-      if (mounted && dialogShowing) {
-        Navigator.of(context).pop();
-        dialogShowing = false;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${e.toString()}',
-              style: const TextStyle(fontSize: 20),
-            ),
-            backgroundColor: Colors.red[700],
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-      return;
+      // No bloquear el flujo si TTS falla
+      developer.log(
+        'Failed to play TTS during session start',
+        name: 'RemoteControlHostScreen',
+        error: e,
+      );
     }
 
-    // Close loading dialog if still showing
-    if (mounted && dialogShowing) {
-      Navigator.of(context).pop();
-      dialogShowing = false;
+    // Iniciar sesión sin diálogo modal - El progreso se muestra en la UI
+    try {
+      print('🔵 [RemoteControlHostScreen] Starting session...');
+      final screenStart = DateTime.now();
 
-      if (sessionCode != null) {
-        // Show success message
+      final sessionCode = await provider.startRemoteSession();
+
+      final screenDuration = DateTime.now().difference(screenStart);
+      print('🔵 [RemoteControlHostScreen] Session started: $sessionCode');
+      print('⏱️  [RemoteControlHostScreen] Total time: ${screenDuration.inMilliseconds}ms');
+
+      // Mostrar mensaje de éxito solo si la sesión se inició correctamente
+      if (mounted && sessionCode != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -307,15 +268,16 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
               style: const TextStyle(fontSize: 20),
             ),
             backgroundColor: Colors.green[700],
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 2),
           ),
         );
-      } else {
-        // Show error message (timeout or failure)
-        final errorMessage = provider.errorMessage ??
-            'No se pudo iniciar la sesión. '
-                'Verifica tu conexión a internet y que Firestore esté habilitado.';
-
+      }
+    } catch (e) {
+      print('🔴 [RemoteControlHostScreen] Exception: $e');
+      // El error ya se maneja vía ErrorHandlerService en el Provider
+      // Solo mostramos mensaje si es necesario
+      if (mounted) {
+        final errorMessage = provider.errorMessage ?? e.toString();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -366,6 +328,7 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       await provider.endRemoteSession();
 
       if (mounted) {
+        // Mostrar mensaje de confirmación
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -376,6 +339,9 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
             duration: const Duration(seconds: 2),
           ),
         );
+
+        // Redirigir al Home Screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     }
   }

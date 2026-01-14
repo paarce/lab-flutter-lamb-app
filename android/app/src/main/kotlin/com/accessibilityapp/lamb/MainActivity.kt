@@ -1,6 +1,11 @@
 package com.accessibilityapp.lamb
 
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.util.DisplayMetrics
 import android.util.Log
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -60,6 +65,31 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "getScreenDimensions" -> {
+                    try {
+                        Log.d(TAG, "Getting screen dimensions")
+                        val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+                        val display = windowManager.defaultDisplay
+                        val metrics = DisplayMetrics()
+                        display.getRealMetrics(metrics)
+
+                        val dimensions = mapOf(
+                            "width" to metrics.widthPixels,
+                            "height" to metrics.heightPixels
+                        )
+
+                        Log.d(TAG, "Screen dimensions: ${metrics.widthPixels}x${metrics.heightPixels}")
+                        result.success(dimensions)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get screen dimensions", e)
+                        result.error(
+                            "SCREEN_DIMENSIONS_FAILED",
+                            "Failed to get screen dimensions: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
                 "simulateTap" -> {
                     try {
                         val x = call.argument<Double>("x")
@@ -76,23 +106,49 @@ class MainActivity : FlutterActivity() {
 
                         Log.d(TAG, "Simulate tap requested at: ($x, $y)")
 
-                        // TODO: Implement tap simulation via AccessibilityService
-                        // This requires:
-                        // 1. AssistantAccessibilityService implementation
-                        // 2. Accessibility permission granted by user
-                        // 3. Global gesture dispatch capability
-                        //
-                        // For now, just log the request
-                        Log.w(TAG, "Tap simulation not yet implemented - AccessibilityService required")
-                        Log.w(TAG, "This will be implemented in future WhatsApp automation feature")
+                        // Get AccessibilityService instance
+                        val service = AssistantAccessibilityService.getInstance()
+                        if (service == null) {
+                            Log.e(TAG, "AccessibilityService not enabled")
+                            result.error(
+                                "PERMISSION_DENIED",
+                                "Accessibility service is not enabled. Please enable it in Settings.",
+                                null
+                            )
+                            return@setMethodCallHandler
+                        }
 
-                        // Return success for now (architecture is ready)
-                        result.success(null)
+                        // Dispatch tap gesture
+                        val success = service.simulateTap(x.toFloat(), y.toFloat())
+
+                        if (success) {
+                            Log.d(TAG, "Tap dispatched successfully")
+                            result.success(null)
+                        } else {
+                            result.error("TAP_SIMULATION_FAILED", "Failed to dispatch tap", null)
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to simulate tap", e)
                         result.error(
                             "TAP_SIMULATION_FAILED",
                             "Failed to simulate tap: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
+                "openAccessibilitySettings" -> {
+                    try {
+                        Log.d(TAG, "Opening accessibility settings")
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(intent)
+                        result.success(null)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to open accessibility settings", e)
+                        result.error(
+                            "SETTINGS_OPEN_FAILED",
+                            "Failed to open accessibility settings: ${e.message}",
                             e.stackTraceToString()
                         )
                     }

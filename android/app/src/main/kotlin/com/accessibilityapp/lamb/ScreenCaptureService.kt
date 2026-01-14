@@ -133,7 +133,7 @@ class ScreenCaptureService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Sesión Remota Activa")
             .setContentText("Tu familiar puede ver tu pantalla")
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // TODO: Replace with custom icon
+            .setSmallIcon(R.drawable.ic_notification_remote_session)
             .setContentIntent(pendingIntent)
             .setOngoing(true) // Cannot be dismissed by user
             .setPriority(NotificationCompat.PRIORITY_LOW) // Low priority = no sound/vibration

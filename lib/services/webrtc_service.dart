@@ -274,22 +274,55 @@ class WebRTCService {
     }
   }
 
+  /// Obtains the actual screen dimensions from Android DisplayMetrics
+  ///
+  /// Returns a map with 'width' and 'height' keys in pixels.
+  /// Falls back to 1080x2340 if Platform Channel fails.
+  Future<Map<String, int>> _getScreenDimensions() async {
+    try {
+      final result = await _platform.invokeMethod('getScreenDimensions');
+      return {
+        'width': result['width'] as int,
+        'height': result['height'] as int,
+      };
+    } on PlatformException catch (e) {
+      developer.log(
+        'Failed to get screen dimensions, using defaults',
+        name: 'WebRTCService',
+        error: e,
+      );
+      // Fallback to common Android resolution
+      return {'width': 1080, 'height': 2340};
+    } catch (e) {
+      developer.log(
+        'Unexpected error getting screen dimensions, using defaults',
+        name: 'WebRTCService',
+        error: e,
+      );
+      // Fallback to common Android resolution
+      return {'width': 1080, 'height': 2340};
+    }
+  }
+
   /// Handles remote tap event from client
   ///
   /// Converts normalized coordinates to pixel coordinates and
   /// simulates tap via AccessibilityService
   Future<void> _handleRemoteTap(double normalizedX, double normalizedY) async {
     try {
-
-      // TODO: Get actual screen dimensions from MediaProjection
-      // For now, using common Android resolutions
-      // This should be obtained dynamically in production
-      const screenWidth = 1080.0; // HD resolution width
-      const screenHeight = 2340.0; // Common 19.5:9 aspect ratio
+      // Get actual screen dimensions from Android
+      final dimensions = await _getScreenDimensions();
+      final screenWidth = dimensions['width']!.toDouble();
+      final screenHeight = dimensions['height']!.toDouble();
 
       // Convert normalized coordinates to pixel coordinates
       final pixelX = (normalizedX * screenWidth).toInt();
       final pixelY = (normalizedY * screenHeight).toInt();
+
+      developer.log(
+        'Remote tap: normalized($normalizedX, $normalizedY) -> pixels($pixelX, $pixelY) on ${screenWidth.toInt()}x${screenHeight.toInt()}',
+        name: 'WebRTCService',
+      );
 
       // Call Platform Channel to simulate tap
       await _simulateTap(pixelX.toDouble(), pixelY.toDouble());
@@ -306,6 +339,10 @@ class WebRTCService {
   ///
   /// Calls the native Android MainActivity to perform the tap using
   /// AccessibilityService
+  ///
+  /// Throws [AppError] if:
+  /// - Accessibility service is not enabled (PERMISSION_DENIED)
+  /// - Tap simulation fails (TAP_SIMULATION_FAILED)
   Future<void> _simulateTap(double x, double y) async {
     try {
       await _platform.invokeMethod('simulateTap', {
@@ -313,16 +350,38 @@ class WebRTCService {
         'y': y,
       });
     } on PlatformException catch (e) {
-      developer.log(
-        'Failed to simulate tap via platform channel',
-        name: 'WebRTCService',
-        error: e,
+      if (e.code == 'PERMISSION_DENIED') {
+        throw AppError(
+          category: ErrorCategory.platformChannel,
+          code: ErrorCodes.pcPermissionDenied,
+          technicalMessage: e.message ?? 'Accessibility service not enabled',
+          userMessage:
+              'El servicio de accesibilidad no está habilitado. Por favor, habilítalo en la configuración.',
+          canRetry: false, // Requires manual action
+          stackTrace: StackTrace.current,
+        );
+      }
+      throw AppError(
+        category: ErrorCategory.platformChannel,
+        code: ErrorCodes.pcNativeException,
+        technicalMessage: e.message ?? 'Failed to simulate tap',
+        userMessage: 'No se pudo realizar el toque remoto.',
+        canRetry: true,
+        stackTrace: StackTrace.current,
       );
     } catch (e) {
       developer.log(
         'Unexpected error simulating tap',
         name: 'WebRTCService',
         error: e,
+      );
+      throw AppError(
+        category: ErrorCategory.platformChannel,
+        code: ErrorCodes.unknownError,
+        technicalMessage: e.toString(),
+        userMessage: 'Error inesperado al simular el toque.',
+        canRetry: true,
+        stackTrace: StackTrace.current,
       );
     }
   }

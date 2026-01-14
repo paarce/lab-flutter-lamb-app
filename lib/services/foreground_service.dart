@@ -105,4 +105,40 @@ class ForegroundService {
       rethrow;
     }
   }
+
+  /// Opens the Android Accessibility Settings screen
+  ///
+  /// Use this to guide users to enable the AssistantAccessibilityService
+  /// which is required for remote tap simulation.
+  ///
+  /// Throws [PlatformException] if settings cannot be opened
+  Future<void> openAccessibilitySettings() async {
+    try {
+      developer.log(
+        'Opening accessibility settings',
+        name: 'ForegroundService',
+      );
+
+      await _platform.invokeMethod('openAccessibilitySettings');
+
+      developer.log(
+        'Accessibility settings opened',
+        name: 'ForegroundService',
+      );
+    } on PlatformException catch (e) {
+      developer.log(
+        'Failed to open accessibility settings',
+        name: 'ForegroundService',
+        error: e,
+      );
+      rethrow;
+    } catch (e) {
+      developer.log(
+        'Unexpected error opening accessibility settings',
+        name: 'ForegroundService',
+        error: e,
+      );
+      rethrow;
+    }
+  }
 }
