@@ -187,8 +187,8 @@ class _ClientViewerScreenState extends State<ClientViewerScreen> {
   /// Handles tap events on the video
   void _handleTap(TapDownDetails details, RemoteViewerProvider provider) {
     // Get video dimensions
-    final videoWidth = _renderer.videoWidth ?? 1;
-    final videoHeight = _renderer.videoHeight ?? 1;
+    final videoWidth = _renderer.videoWidth;
+    final videoHeight = _renderer.videoHeight;
 
     if (videoWidth == 0 || videoHeight == 0) {
       print('🔴 [ClientViewerScreen] Invalid video dimensions: $videoWidth x $videoHeight');

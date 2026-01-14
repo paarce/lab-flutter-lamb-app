@@ -303,7 +303,7 @@ class FirebaseSignalingService {
 
       final duration = DateTime.now().difference(startTime);
       print('✅ [FirebaseSignaling] setOffer: Updated successfully in ${duration.inMilliseconds}ms (${(duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
-    } catch (e, stackTrace) {
+    } catch (e) {
       print('🔴 [FirebaseSignaling] setOffer: Failed for session $sessionCode - $e');
       throw Exception('Failed to set offer: $e');
     }

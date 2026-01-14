@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -330,7 +328,7 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
           ),
         );
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       print(
         '❌ [RemoteControlHostScreen] Exception in _startSession'
       );

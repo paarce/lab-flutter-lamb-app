@@ -1,6 +1,5 @@
 import 'tts_service.dart';
 import 'implementations/flutter_tts_service.dart';
-import '../../config/secrets.dart';
 
 /// Factory para crear y gestionar instancia singleton de TTSService
 ///
