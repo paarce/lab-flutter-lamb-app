@@ -33,9 +33,7 @@ El proyecto está en su fase inicial con la infraestructura base configurada y l
 
 ### Servicios de Voz
 - **STT (Speech-to-Text):** ElevenLabs Scribe v2 WebSocket (ultra-baja latencia 150ms, alta precisión)
-- **TTS (Text-to-Speech):** 
-  - **Implementación activa:** flutter_tts (motor nativo Android/iOS, gratis, offline, latencia 50-200ms)
-  - **Alternativas escalables:** Google Cloud TTS, Azure Cognitive Services (ambas en skeleton, listas para implementar)
+- **TTS (Text-to-Speech):** flutter_tts (motor nativo Android/iOS, gratis, offline, latencia 50-200ms)
 
 ### Otros Servicios
 - **Control Remoto:** WebRTC custom + Firebase Firestore (signaling)
@@ -101,9 +99,7 @@ lib/
 │   │   ├── tts_config.dart               ✅ Configuración global
 │   │   ├── tts_factory.dart              ✅ Factory singleton
 │   │   └── implementations/
-│   │       ├── flutter_tts_service.dart  ✅ Implementación activa (nativa)
-│   │       ├── google_cloud_tts_service.dart  🔜 Skeleton futuro
-│   │       └── azure_tts_service.dart    🔜 Skeleton futuro
+│   │       └── flutter_tts_service.dart  ✅ Implementación activa (nativa)
 │   ├── firebase_signaling_service.dart   ✅ Firebase Signaling
 │   ├── webrtc_client_service.dart        ✅ WebRTC Client
 │   ├── webrtc_service.dart               ✅ WebRTC Base
@@ -202,6 +198,26 @@ android/app/src/main/kotlin/
 - ✅ Botones: mínimo **80dp altura**
 - ✅ Texto: mínimo **24sp**
 - ✅ Testar con TalkBack antes de commit
+
+### Optimización de Tokens (Eficiencia)
+
+**Usuario ejecuta manualmente:**
+- `flutter analyze` - Usuario reporta errores específicos
+- `flutter test` - Usuario ejecuta y reporta resultados
+- `flutter run` - Usuario ejecuta la app
+- `flutter logs` - Usuario filtra y comparte logs relevantes
+
+**Claude solo ejecuta:**
+- Comandos git (status, diff, commit, etc.)
+- Ediciones de archivos (Write, Edit, Read cuando necesario)
+
+**Minimizar lecturas:**
+- Confiar en contexto de mensajes anteriores (no releer archivos)
+- Leer solo secciones necesarias con offset/limit
+- Usar Grep para búsquedas específicas vs Read de archivo completo
+- Usuario provee errores/logs exactos en lugar de ejecutar comandos
+
+**Ver:** `.claude/rules/token-optimization.md` para detalles completos
 
 ---
 
@@ -412,15 +428,15 @@ final channel = WebSocketChannel.connect(
 );
 ```
 
-### TTS (Text-to-Speech) - Arquitectura Escalable
+### TTS (Text-to-Speech) - flutter_tts (Motor Nativo)
 
-**Cambio:** Migrado de ElevenLabs TTS a abstracción modular de proveedores TTS.
+**Cambio:** Migrado de ElevenLabs TTS a flutter_tts (motor nativo).
 
-#### Implementación Activa: flutter_tts (Nativa)
+#### Implementación: flutter_tts
 - **Motor:** Android TTS nativo / iOS VoiceOver
 - **Costo:** Gratis
 - **Latencia:** 50-200ms (muy rápido)
-- **Ventaja:** Offline, confiable, contraseña, accesible
+- **Ventajas:** Offline, confiable, accesible, sin costos de API
 - **Desventaja:** Voz menos natural que ElevenLabs
 
 ```dart
@@ -428,11 +444,6 @@ final channel = WebSocketChannel.connect(
 final ttsService = TTSFactory.getInstance();
 await ttsService.speak('Hola mundo');
 ```
-
-#### Alternativas Escalables (Ready to Implement)
-- **Google Cloud TTS:** Voces naturales, $16/1M caracteres
-- **Azure Cognitive Services:** Estilos expresivos, ~$15/1M caracteres
-- Ambas están en skeleton (`lib/services/tts/implementations/`), listas para implementar cuando necesites
 
 #### Configuración (Global)
 ```dart
@@ -445,17 +456,11 @@ class TTSConfig {
 }
 ```
 
-#### Seleccionar Proveedor
-```dart
-// lib/config/secrets.dart
-static const String ttsProvider = 'flutter_tts'; // o 'google_cloud', 'azure'
-```
-
-**Ventajas del diseño:**
-- ✅ Cambiar proveedor SIN tocar código Dart
-- ✅ Multi-proveedor en la misma app (diferente funcionalidad)
-- ✅ Escalable: agregar nuevos proveedores sin romper nada
-- ✅ Testing fácil: usar un proveedor diferente
+**Ventajas de usar flutter_tts:**
+- ✅ Sin dependencia de APIs externas
+- ✅ Funciona offline
+- ✅ Sin costos adicionales
+- ✅ Accesible y confiable para usuarios con baja visión
 
 ---
 

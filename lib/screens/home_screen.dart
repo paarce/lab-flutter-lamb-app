@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 
 import 'remote_control_host_screen.dart';
@@ -14,6 +15,10 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print(
+      '🏠 [HomeScreen] build called - HomeScreen is now visible'
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Asistente'),
@@ -88,6 +93,10 @@ class HomeScreen extends StatelessWidget {
                 enabled: true,
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    developer.log(
+                      '🏠 [HomeScreen] User pressed "Control Remoto" button',
+                      name: 'HomeScreen',
+                    );
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const RemoteControlHostScreen(),

@@ -27,22 +27,54 @@ class RemoteControlHostScreen extends StatefulWidget {
 
 class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
   bool _sessionAutoStarted = false;
+  bool _isRepeatingCode = false;
+  static bool _userManuallyEndedSession = false;
 
   @override
   void initState() {
     super.initState();
+    print(
+      '🟢 [RemoteControlHostScreen] initState called'
+    );
+
     // Auto-start session when screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_sessionAutoStarted) {
         _sessionAutoStarted = true;
         final provider = context.read<RemoteControlProvider>();
-        if (provider.status == RemoteControlStatus.idle ||
-            provider.status == RemoteControlStatus.ended ||
-            provider.status == RemoteControlStatus.error) {
+
+        print(
+          '🟢 [RemoteControlHostScreen] Auto-start check: status=${provider.status}, userManuallyEnded=$_userManuallyEndedSession'
+        );
+
+        // Only auto-start if:
+        // - Status is idle (first time since app started)
+        // - User has NOT manually ended a session previously
+        // DO NOT auto-start if:
+        // - Status is ended (user terminated session)
+        // - Status is error (user must manually retry to avoid infinite loop)
+        // - User previously ended a session manually (to avoid annoying re-starts)
+        if (provider.status == RemoteControlStatus.idle &&
+            !_userManuallyEndedSession) {
+          print(
+            '🟢 [RemoteControlHostScreen] Auto-starting session'
+          );
           _startSession(provider);
+        } else {
+          print(
+            '🟡 [RemoteControlHostScreen] NOT auto-starting (status=${provider.status}, userManuallyEnded=$_userManuallyEndedSession)'
+          );
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    print(
+      '🟠 [RemoteControlHostScreen] dispose called'
+    );
+    super.dispose();
   }
 
   @override
@@ -90,6 +122,18 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
                   // Session code display (only when session is active)
                   if (provider.sessionCode != null) ...[
                     SessionCodeDisplay(sessionCode: provider.sessionCode!),
+                    const SizedBox(height: 24),
+
+                    // Button to repeat session code via speaker
+                    AccessibleButton(
+                      label: 'Repetir código en altavoz',
+                      icon: Icons.volume_up,
+                      semanticHint:
+                          'Toca dos veces para escuchar el código de sesión nuevamente',
+                      onPressed: _isRepeatingCode
+                          ? null
+                          : () => _repeatSessionCode(provider.sessionCode!),
+                    ),
                     const SizedBox(height: 24),
 
                     // Instructions for user
@@ -213,7 +257,11 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         onPressed: provider.status == RemoteControlStatus.idle ||
                 provider.status == RemoteControlStatus.ended ||
                 provider.status == RemoteControlStatus.error
-            ? () => _startSession(provider)
+            ? () {
+                // Reset flag when user manually starts a session
+                _userManuallyEndedSession = false;
+                _startSession(provider);
+              }
             : null,
       );
     } else {
@@ -231,7 +279,16 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
 
   /// Starts a new remote control session
   Future<void> _startSession(RemoteControlProvider provider) async {
-    if (!mounted) return;
+    if (!mounted) {
+      print(
+        '⚠️  [RemoteControlHostScreen] _startSession skipped: widget not mounted'
+      );
+      return;
+    }
+
+    print(
+      '🔵 [RemoteControlHostScreen] _startSession called (status=${provider.status})'
+    );
 
     // Feedback audible inmediato para usuario con baja visión
     try {
@@ -241,23 +298,24 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       );
     } catch (e) {
       // No bloquear el flujo si TTS falla
-      developer.log(
-        'Failed to play TTS during session start',
-        name: 'RemoteControlHostScreen',
-        error: e,
+      print(
+        'Failed to play TTS during session start'
       );
     }
 
     // Iniciar sesión sin diálogo modal - El progreso se muestra en la UI
     try {
-      print('🔵 [RemoteControlHostScreen] Starting session...');
+      print(
+        '🔵 [RemoteControlHostScreen] Calling provider.startRemoteSession()...'
+      );
       final screenStart = DateTime.now();
 
       final sessionCode = await provider.startRemoteSession();
 
       final screenDuration = DateTime.now().difference(screenStart);
-      print('🔵 [RemoteControlHostScreen] Session started: $sessionCode');
-      print('⏱️  [RemoteControlHostScreen] Total time: ${screenDuration.inMilliseconds}ms');
+      print(
+        '✅ [RemoteControlHostScreen] Session started successfully: $sessionCode (took ${screenDuration.inMilliseconds}ms)'
+      );
 
       // Mostrar mensaje de éxito solo si la sesión se inició correctamente
       if (mounted && sessionCode != null) {
@@ -272,8 +330,10 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
           ),
         );
       }
-    } catch (e) {
-      print('🔴 [RemoteControlHostScreen] Exception: $e');
+    } catch (e, stackTrace) {
+      print(
+        '❌ [RemoteControlHostScreen] Exception in _startSession'
+      );
       // El error ya se maneja vía ErrorHandlerService en el Provider
       // Solo mostramos mensaje si es necesario
       if (mounted) {
@@ -294,6 +354,10 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
 
   /// Ends the current remote control session
   Future<void> _endSession(RemoteControlProvider provider) async {
+    print(
+      '🔴 [RemoteControlHostScreen] _endSession called (status=${provider.status})'
+    );
+
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
@@ -317,6 +381,7 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
             AccessibleButton(
               label: 'Terminar',
               isDestructive: true,
+              // TODO: The error is still here, the navigation to home is happening before the session ends.
               onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
@@ -325,10 +390,32 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
     );
 
     if (confirmed == true) {
+      print(
+        '🔴 [RemoteControlHostScreen] User confirmed end session, calling endRemoteSession()...'
+      );
+
+      // Mark that user manually ended the session to prevent auto-restart
+      _userManuallyEndedSession = true;
+
+      // Wait for session to fully end before navigating
       await provider.endRemoteSession();
 
+      print(
+        '🔴 [RemoteControlHostScreen] endRemoteSession() completed, status=${provider.status}'
+      );
+
+      // Give provider a moment to finish all cleanup operations
+      await Future.delayed(const Duration(milliseconds: 500));
+
       if (mounted) {
-        // Mostrar mensaje de confirmación
+        print(
+          '🔴 [RemoteControlHostScreen] Navigating to home...'
+        );
+
+        // Redirigir al Home Screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+
+        // Mostrar mensaje DESPUÉS de navegar (se verá en el home)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -340,8 +427,50 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
           ),
         );
 
-        // Redirigir al Home Screen
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        print(
+          '🔴 [RemoteControlHostScreen] Navigation to home completed'
+        );
+      } else {
+        print(
+          '⚠️  [RemoteControlHostScreen] Widget not mounted, skipping navigation'
+        );
+      }
+    } else {
+      print(
+        '🟡 [RemoteControlHostScreen] User cancelled end session'
+      );
+    }
+  }
+
+  /// Repeats the session code via TTS (text-to-speech)
+  Future<void> _repeatSessionCode(String sessionCode) async {
+    // Prevent multiple simultaneous reproductions
+    if (_isRepeatingCode) return;
+
+    setState(() {
+      _isRepeatingCode = true;
+    });
+
+    try {
+      final ttsService = TTSFactory.getInstance();
+
+      // Format code with spaces between digits for clear pronunciation
+      // Example: "234567" -> "2, 3, 4, 5, 6, 7"
+      final formattedCode = sessionCode.split('').join(', ');
+
+      await ttsService.speak(
+        'Código de sesión: $formattedCode',
+      );
+    } catch (e) {
+      // Log error but don't block UI (non-critical feature)
+      print(
+        'Failed to repeat session code via TTS'
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRepeatingCode = false;
+        });
       }
     }
   }

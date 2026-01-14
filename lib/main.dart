@@ -5,7 +5,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'providers/remote_control_provider.dart';
 import 'screens/home_screen.dart';
-import 'services/elevenlabs_service.dart';
 import 'services/firebase_signaling_service.dart';
 import 'services/error_handler_service.dart';
 import 'services/logger_service.dart';

@@ -54,6 +54,9 @@ class RemoteControlProvider extends ChangeNotifier {
 
   String? get errorMessage => _errorMessage;
 
+  /// Flag to cancel ongoing operations
+  bool _isCancelled = false;
+
   /// Last error that occurred (for detailed error handling)
   AppError? _lastError;
 
@@ -99,14 +102,22 @@ class RemoteControlProvider extends ChangeNotifier {
     try {
       print('🔵 [RemoteControlProvider] STEP 0: Starting remote control session');
 
-      // Clear previous errors
+      // Clear previous errors and reset cancellation flag
       _errorMessage = null;
+      _isCancelled = false;
 
       _setStatus(RemoteControlStatus.creatingSession);
 
       // Step 1: Create session in Firestore
       print('🔵 [RemoteControlProvider] STEP 1: Creating session in Firestore...');
       _currentSession = await _signalingService.createSession();
+
+      // Check if cancelled after async operation
+      if (_isCancelled) {
+        print('⚠️  [RemoteControlProvider] CANCELLED after STEP 1');
+        return null;
+      }
+
       print('🔵 [RemoteControlProvider] STEP 1: Session created: ${_currentSession?.sessionCode}');
 
       if (_currentSession == null) {
@@ -123,6 +134,14 @@ class RemoteControlProvider extends ChangeNotifier {
       print('🔵 [RemoteControlProvider] STEP 2a: Starting foreground service (Android 14+ requirement)');
       try {
         await _foregroundService.start();
+
+        // Check if cancelled after async operation
+        if (_isCancelled) {
+          print('⚠️  [RemoteControlProvider] CANCELLED after STEP 2a');
+          await _cleanup();
+          return null;
+        }
+
         print('🔵 [RemoteControlProvider] STEP 2a: Foreground service started');
       } catch (e) {
         print('🔴 [RemoteControlProvider] STEP 2a: Failed to start foreground service: $e');
@@ -137,6 +156,14 @@ class RemoteControlProvider extends ChangeNotifier {
       print('🔵 [RemoteControlProvider] STEP 2b: Initializing WebRTC for session: ${_currentSession!.sessionCode}');
       print('⚠️  [RemoteControlProvider] NOTE: flutter_webrtc will request MediaProjection permission now');
       await _webrtcService.initializeAsHost(_currentSession!.sessionCode);
+
+      // Check if cancelled after async operation
+      if (_isCancelled) {
+        print('⚠️  [RemoteControlProvider] CANCELLED after STEP 2b');
+        await _cleanup();
+        return null;
+      }
+
       print('🔵 [RemoteControlProvider] STEP 2b: WebRTC initialized');
 
       _setStatus(RemoteControlStatus.waitingForClient);
@@ -188,10 +215,6 @@ class RemoteControlProvider extends ChangeNotifier {
       print('🔴 [RemoteControlProvider] UNEXPECTED ERROR caught: $e');
       print('🔴 [RemoteControlProvider] Stack trace: $stackTrace');
 
-      // TODO: Implement centralized error reporting service in FUNCIONALIDAD 2.1
-      // This should log errors to Firebase Crashlytics or similar service
-      // for monitoring production issues.
-
       // Create AppError instance for detailed error handling
       _lastError = AppError(
         category: ErrorCategory.unknown,
@@ -221,6 +244,9 @@ class RemoteControlProvider extends ChangeNotifier {
   /// Ends the current remote control session
   Future<void> endRemoteSession() async {
     try {
+      // Cancel any ongoing startRemoteSession operation
+      _isCancelled = true;
+
       developer.log(
         'Ending remote control session',
         name: 'RemoteControlProvider',

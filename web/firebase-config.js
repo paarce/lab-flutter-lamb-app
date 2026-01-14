@@ -1,7 +1,4 @@
 // Firebase Web Configuration
-// TODO: Reemplazar con valores reales de Firebase Console
-// Ir a: Firebase Console → Project Settings → Your apps → Web app → SDK setup and configuration
-
 const firebaseConfig = {
   apiKey: "AIzaSyAjBcvvyq2PZfrvvbSfDV9GVNcavGuOVlY",
   authDomain: "lamb-dev-36c91.firebaseapp.com",
