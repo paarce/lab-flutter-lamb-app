@@ -35,6 +35,10 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       '🟢 [RemoteControlHostScreen] initState called'
     );
 
+    // Reset flag when user enters this screen
+    // If user navigated here, they want to start a session (either auto or manual)
+    _userManuallyEndedSession = false;
+
     // Auto-start session when screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_sessionAutoStarted) {
@@ -45,15 +49,9 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
           '🟢 [RemoteControlHostScreen] Auto-start check: status=${provider.status}, userManuallyEnded=$_userManuallyEndedSession'
         );
 
-        // Only auto-start if:
-        // - Status is idle (first time since app started)
-        // - User has NOT manually ended a session previously
-        // DO NOT auto-start if:
-        // - Status is ended (user terminated session)
-        // - Status is error (user must manually retry to avoid infinite loop)
-        // - User previously ended a session manually (to avoid annoying re-starts)
-        if (provider.status == RemoteControlStatus.idle &&
-            !_userManuallyEndedSession) {
+        // Auto-start session whenever user enters this screen
+        // DO NOT auto-start if user just manually ended (to avoid loop during navigation)
+        if (!_userManuallyEndedSession) {
           print(
             '🟢 [RemoteControlHostScreen] Auto-starting session'
           );
@@ -65,6 +63,14 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         }
       }
     });
+
+    // Listen for session status changes to handle normal disconnections
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = context.read<RemoteControlProvider>();
+        provider.addListener(_onSessionStatusChanged);
+      }
+    });
   }
 
   @override
@@ -72,7 +78,49 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
     print(
       '🟠 [RemoteControlHostScreen] dispose called'
     );
+    // Remove the listener when disposing
+    try {
+      final provider = context.read<RemoteControlProvider>();
+      provider.removeListener(_onSessionStatusChanged);
+    } catch (e) {
+      // Provider may not be available during dispose
+    }
     super.dispose();
+  }
+
+  /// Handles session status changes
+  /// Automatically navigates to home when session ends normally
+  void _onSessionStatusChanged() {
+    if (!mounted) return;
+
+    final provider = context.read<RemoteControlProvider>();
+
+    // If session ended normally (no error) and user didn't manually end it
+    if (provider.status == RemoteControlStatus.ended &&
+        provider.lastError == null &&
+        !_userManuallyEndedSession) {
+      print(
+        '🟢 [RemoteControlHostScreen] Session ended normally (client disconnected), navigating to home...'
+      );
+
+      // Mark that the session was auto-ended (not manually by user)
+      _userManuallyEndedSession = true;
+
+      // Navigate to home
+      Navigator.of(context).popUntil((route) => route.isFirst);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Tu familiar ha terminado la sesión',
+            style: TextStyle(fontSize: 20),
+          ),
+          backgroundColor: Colors.grey[700],
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -89,7 +137,9 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       body: Consumer<RemoteControlProvider>(
         builder: (context, provider, child) {
           // Check for errors and display them using ErrorHandlerService
-          if (provider.lastError != null) {
+          // BUT: Only show error dialog if it's an actual error, not a normal session end
+          if (provider.lastError != null &&
+              provider.status == RemoteControlStatus.error) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && provider.lastError != null) {
                 ErrorHandlerService.handleError(
@@ -245,25 +295,8 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         provider.status != RemoteControlStatus.ended &&
         provider.status != RemoteControlStatus.error;
 
-    if (!isSessionActive) {
-      // Show "Start Session" button
-      return AccessibleButton(
-        label: 'Iniciar Sesión Remota',
-        icon: Icons.phonelink,
-        semanticHint:
-            'Toca dos veces para generar un código y permitir que tu familiar se conecte',
-        onPressed: provider.status == RemoteControlStatus.idle ||
-                provider.status == RemoteControlStatus.ended ||
-                provider.status == RemoteControlStatus.error
-            ? () {
-                // Reset flag when user manually starts a session
-                _userManuallyEndedSession = false;
-                _startSession(provider);
-              }
-            : null,
-      );
-    } else {
-      // Show "End Session" button
+    if (isSessionActive) {
+      // Show "End Session" button only when session is active
       return AccessibleButton(
         label: 'Terminar Sesión',
         icon: Icons.stop,
@@ -272,6 +305,10 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         isDestructive: true,
         onPressed: () => _endSession(provider),
       );
+    } else {
+      // No button when session is not active
+      // Auto-start will handle starting the session
+      return const SizedBox.shrink();
     }
   }
 
@@ -311,12 +348,21 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       final sessionCode = await provider.startRemoteSession();
 
       final screenDuration = DateTime.now().difference(screenStart);
+
+      // If session was cancelled or failed, stop execution
+      if (sessionCode == null) {
+        print(
+          '⚠️  [RemoteControlHostScreen] Session cancelled or failed (returned null after ${screenDuration.inMilliseconds}ms)'
+        );
+        return;
+      }
+
       print(
         '✅ [RemoteControlHostScreen] Session started successfully: $sessionCode (took ${screenDuration.inMilliseconds}ms)'
       );
 
-      // Mostrar mensaje de éxito solo si la sesión se inició correctamente
-      if (mounted && sessionCode != null) {
+      // Mostrar mensaje de éxito
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

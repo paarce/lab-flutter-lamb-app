@@ -57,6 +57,9 @@ class RemoteControlProvider extends ChangeNotifier {
   /// Flag to cancel ongoing operations
   bool _isCancelled = false;
 
+  /// Flag to track if client intentionally disconnected (vs error)
+  bool _clientInitiatedDisconnect = false;
+
   /// Last error that occurred (for detailed error handling)
   AppError? _lastError;
 
@@ -115,6 +118,8 @@ class RemoteControlProvider extends ChangeNotifier {
       // Check if cancelled after async operation
       if (_isCancelled) {
         print('⚠️  [RemoteControlProvider] CANCELLED after STEP 1');
+        _currentSession = null; // Clear session data
+        await _cleanup();
         return null;
       }
 
@@ -289,11 +294,12 @@ class RemoteControlProvider extends ChangeNotifier {
         .watchSession(_currentSession!.sessionCode)
         .listen((session) {
       if (session == null) {
-        // Session ended or expired
+        // Session ended or expired - this is normal
         developer.log(
           'Session ended or expired',
           name: 'RemoteControlProvider',
         );
+        _clientInitiatedDisconnect = true;
         _setStatus(RemoteControlStatus.ended);
         _cleanup();
         return;
@@ -313,6 +319,8 @@ class RemoteControlProvider extends ChangeNotifier {
           _setStatus(RemoteControlStatus.connected);
           break;
         case RemoteSessionStatus.ended:
+          // Client ended session normally - not an error
+          _clientInitiatedDisconnect = true;
           _setStatus(RemoteControlStatus.ended);
           _cleanup();
           break;
@@ -356,17 +364,24 @@ class RemoteControlProvider extends ChangeNotifier {
           _setStatus(RemoteControlStatus.connected);
           break;
         case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
-          _lastError = AppError(
-            category: ErrorCategory.webRTC,
-            code: ErrorCodes.wrtcConnectionFailed,
-            technicalMessage: 'Peer connection state failed',
-            userMessage: 'Conexión WebRTC fallida',
-            canRetry: true,
-          );
-          _setStatus(RemoteControlStatus.error);
-          _setError('Conexión WebRTC fallida');
+          // Only set error if not already marked as normal disconnect
+          if (!_clientInitiatedDisconnect) {
+            _lastError = AppError(
+              category: ErrorCategory.webRTC,
+              code: ErrorCodes.wrtcConnectionFailed,
+              technicalMessage: 'Peer connection state failed',
+              userMessage: 'Conexión WebRTC fallida',
+              canRetry: true,
+            );
+            _setStatus(RemoteControlStatus.error);
+            _setError('Conexión WebRTC fallida');
+          }
           break;
         case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
+          // Connection closed - only treat as error if not normal disconnect
+          if (!_clientInitiatedDisconnect) {
+            _clientInitiatedDisconnect = true;
+          }
           _setStatus(RemoteControlStatus.ended);
           break;
         default:
