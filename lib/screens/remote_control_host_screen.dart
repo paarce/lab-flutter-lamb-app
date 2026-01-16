@@ -5,6 +5,7 @@ import '../providers/remote_control_provider.dart';
 import '../services/error_handler_service.dart';
 import '../services/tts/tts_factory.dart';
 import '../widgets/accessible_button.dart';
+import '../widgets/base_screen_layout.dart';
 import '../widgets/connection_status_indicator.dart';
 import '../widgets/session_code_display.dart';
 
@@ -31,12 +32,8 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
   @override
   void initState() {
     super.initState();
-    print(
-      '🟢 [RemoteControlHostScreen] initState called'
-    );
 
     // Reset flag when user enters this screen
-    // If user navigated here, they want to start a session (either auto or manual)
     _userManuallyEndedSession = false;
 
     // Auto-start session when screen is opened
@@ -45,21 +42,10 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         _sessionAutoStarted = true;
         final provider = context.read<RemoteControlProvider>();
 
-        print(
-          '🟢 [RemoteControlHostScreen] Auto-start check: status=${provider.status}, userManuallyEnded=$_userManuallyEndedSession'
-        );
-
         // Auto-start session whenever user enters this screen
         // DO NOT auto-start if user just manually ended (to avoid loop during navigation)
         if (!_userManuallyEndedSession) {
-          print(
-            '🟢 [RemoteControlHostScreen] Auto-starting session'
-          );
           _startSession(provider);
-        } else {
-          print(
-            '🟡 [RemoteControlHostScreen] NOT auto-starting (status=${provider.status}, userManuallyEnded=$_userManuallyEndedSession)'
-          );
         }
       }
     });
@@ -75,9 +61,6 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
 
   @override
   void dispose() {
-    print(
-      '🟠 [RemoteControlHostScreen] dispose called'
-    );
     // Remove the listener when disposing
     try {
       final provider = context.read<RemoteControlProvider>();
@@ -99,10 +82,6 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
     if (provider.status == RemoteControlStatus.ended &&
         provider.lastError == null &&
         !_userManuallyEndedSession) {
-      print(
-        '🟢 [RemoteControlHostScreen] Session ended normally (client disconnected), navigating to home...'
-      );
-
       // Mark that the session was auto-ended (not manually by user)
       _userManuallyEndedSession = true;
 
@@ -125,205 +104,176 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Control Remoto',
-          style: TextStyle(fontSize: 24),
-        ),
-        centerTitle: true,
-        elevation: 2,
-      ),
-      body: Consumer<RemoteControlProvider>(
-        builder: (context, provider, child) {
-          // Check for errors and display them using ErrorHandlerService
-          // BUT: Only show error dialog if it's an actual error, not a normal session end
-          if (provider.lastError != null &&
-              provider.status == RemoteControlStatus.error) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && provider.lastError != null) {
-                ErrorHandlerService.handleError(
-                  context: context,
-                  error: provider.lastError!,
-                  service: 'RemoteControlProvider',
-                  canRetry: provider.lastError!.canRetry,
-                  onRetry: provider.lastError!.canRetry
-                      ? () => _startSession(provider)
-                      : null,
-                );
-                provider.clearError();
-              }
-            });
-          }
+    return Consumer<RemoteControlProvider>(
+      builder: (context, provider, child) {
+        // Check for errors and display them using ErrorHandlerService
+        // BUT: Only show error dialog if it's an actual error, not a normal session end
+        if (provider.lastError != null &&
+            provider.status == RemoteControlStatus.error) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && provider.lastError != null) {
+              ErrorHandlerService.handleError(
+                context: context,
+                error: provider.lastError!,
+                service: 'RemoteControlProvider',
+                canRetry: provider.lastError!.canRetry,
+                onRetry: provider.lastError!.canRetry
+                    ? () => _startSession(provider)
+                    : null,
+                // Navigate to home when user dismisses error without retrying
+                onDismiss: () {
+                  if (mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                },
+              );
+              provider.clearError();
+            }
+          });
+        }
 
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Connection status indicator
-                  ConnectionStatusIndicator(status: provider.status),
+        // Determine if session is active for showing footer action
+        final isSessionActive = provider.status != RemoteControlStatus.idle &&
+            provider.status != RemoteControlStatus.ended &&
+            provider.status != RemoteControlStatus.error;
 
-                  const SizedBox(height: 32),
+        return BaseScreenLayout(
+          title: 'Control Remoto',
+          showBackButton: true,
+          content: [
+            // Connection status indicator
+            ConnectionStatusIndicator(status: provider.status),
 
-                  // Session code display (only when session is active)
-                  if (provider.sessionCode != null) ...[
-                    SessionCodeDisplay(sessionCode: provider.sessionCode!),
-                    const SizedBox(height: 24),
+            const SizedBox(height: 32),
 
-                    // Button to repeat session code via speaker
-                    AccessibleButton(
-                      label: 'Repetir código en altavoz',
-                      icon: Icons.volume_up,
-                      semanticHint:
-                          'Toca dos veces para escuchar el código de sesión nuevamente',
-                      onPressed: _isRepeatingCode
-                          ? null
-                          : () => _repeatSessionCode(provider.sessionCode!),
-                    ),
-                    const SizedBox(height: 24),
+            // Session code display (only when session is active)
+            if (provider.sessionCode != null) ...[
+              SessionCodeDisplay(sessionCode: provider.sessionCode!),
+              const SizedBox(height: 24),
 
-                    // Instructions for user
-                    Semantics(
-                      label:
-                          'Comparte el código ${provider.sessionCode} con tu familiar',
-                      child: Card(
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                size: 36,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Comparte este código con tu familiar para que pueda conectarse y ayudarte',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withValues(alpha: 0.8),
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
+              // Button to repeat session code via speaker
+              AccessibleButton(
+                label: 'Repetir código en altavoz',
+                icon: Icons.volume_up,
+                semanticHint:
+                    'Toca dos veces para escuchar el código de sesión nuevamente',
+                onPressed: _isRepeatingCode
+                    ? null
+                    : () => _repeatSessionCode(provider.sessionCode!),
+              ),
+              const SizedBox(height: 24),
+
+              // Instructions for user
+              Semantics(
+                label:
+                    'Comparte el código ${provider.sessionCode} con tu familiar',
+                child: Card(
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 36,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-                  ],
-
-                  // Error message (if any)
-                  if (provider.errorMessage != null) ...[
-                    Semantics(
-                      label: 'Error: ${provider.errorMessage}',
-                      liveRegion: true,
-                      child: Card(
-                        elevation: 4,
-                        color: Colors.red[50],
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 36,
-                                color: Colors.red[700],
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  provider.errorMessage!,
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    color: Colors.red[900],
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 12),
+                        Text(
+                          'Comparte este código con tu familiar para que pueda conectarse y ayudarte',
+                          style: TextStyle(
+                            fontSize: 20,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.8),
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Spacer replaced with fixed height for scrollable content
-                  const SizedBox(height: 48),
-
-                  // Action buttons
-                  _buildActionButtons(provider),
-
-                  const SizedBox(height: 16),
-
-                  // Help text
-                  Semantics(
-                    label:
-                        'Necesitas ayuda de un familiar para resolver un problema en tu dispositivo',
-                    child: Text(
-                      '¿Necesitas ayuda de un familiar?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.6),
-                      ),
-                      textAlign: TextAlign.center,
+                      ],
                     ),
                   ),
-                ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+            ],
+
+            // Error message (if any)
+            if (provider.errorMessage != null) ...[
+              Semantics(
+                label: 'Error: ${provider.errorMessage}',
+                liveRegion: true,
+                child: Card(
+                  elevation: 4,
+                  color: Colors.red[50],
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 36,
+                          color: Colors.red[700],
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            provider.errorMessage!,
+                            style: TextStyle(
+                              fontSize: 20,
+                              color: Colors.red[900],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Help text at the bottom of scrollable content
+            const SizedBox(height: 16),
+            Semantics(
+              label:
+                  'Necesitas ayuda de un familiar para resolver un problema en tu dispositivo',
+              child: Text(
+                '¿Necesitas ayuda de un familiar?',
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.6),
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
-          );
-        },
-      ),
+          ],
+          // Footer with "End Session" button (only when session is active)
+          footerActions: isSessionActive
+              ? [
+                  AccessibleButton(
+                    label: 'Terminar Sesión',
+                    icon: Icons.stop,
+                    semanticHint:
+                        'Toca dos veces para terminar la sesión remota y dejar de compartir tu pantalla',
+                    isDestructive: true,
+                    onPressed: () => _endSession(provider),
+                  ),
+                ]
+              : [],
+        );
+      },
     );
-  }
-
-  /// Builds action buttons based on current status
-  Widget _buildActionButtons(RemoteControlProvider provider) {
-    final isSessionActive = provider.status != RemoteControlStatus.idle &&
-        provider.status != RemoteControlStatus.ended &&
-        provider.status != RemoteControlStatus.error;
-
-    if (isSessionActive) {
-      // Show "End Session" button only when session is active
-      return AccessibleButton(
-        label: 'Terminar Sesión',
-        icon: Icons.stop,
-        semanticHint:
-            'Toca dos veces para terminar la sesión remota y dejar de compartir tu pantalla',
-        isDestructive: true,
-        onPressed: () => _endSession(provider),
-      );
-    } else {
-      // No button when session is not active
-      // Auto-start will handle starting the session
-      return const SizedBox.shrink();
-    }
   }
 
   /// Starts a new remote control session
   Future<void> _startSession(RemoteControlProvider provider) async {
-    if (!mounted) {
-      print(
-        '⚠️  [RemoteControlHostScreen] _startSession skipped: widget not mounted'
-      );
-      return;
-    }
-
-    print(
-      '🔵 [RemoteControlHostScreen] _startSession called (status=${provider.status})'
-    );
+    if (!mounted) return;
 
     // Feedback audible inmediato para usuario con baja visión
     try {
@@ -333,33 +283,16 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
       );
     } catch (e) {
       // No bloquear el flujo si TTS falla
-      print(
-        'Failed to play TTS during session start'
-      );
     }
 
     // Iniciar sesión sin diálogo modal - El progreso se muestra en la UI
     try {
-      print(
-        '🔵 [RemoteControlHostScreen] Calling provider.startRemoteSession()...'
-      );
-      final screenStart = DateTime.now();
-
       final sessionCode = await provider.startRemoteSession();
-
-      final screenDuration = DateTime.now().difference(screenStart);
 
       // If session was cancelled or failed, stop execution
       if (sessionCode == null) {
-        print(
-          '⚠️  [RemoteControlHostScreen] Session cancelled or failed (returned null after ${screenDuration.inMilliseconds}ms)'
-        );
         return;
       }
-
-      print(
-        '✅ [RemoteControlHostScreen] Session started successfully: $sessionCode (took ${screenDuration.inMilliseconds}ms)'
-      );
 
       // Mostrar mensaje de éxito
       if (mounted) {
@@ -375,11 +308,7 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         );
       }
     } catch (e) {
-      print(
-        '❌ [RemoteControlHostScreen] Exception in _startSession'
-      );
       // El error ya se maneja vía ErrorHandlerService en el Provider
-      // Solo mostramos mensaje si es necesario
       if (mounted) {
         final errorMessage = provider.errorMessage ?? e.toString();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -398,10 +327,6 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
 
   /// Ends the current remote control session
   Future<void> _endSession(RemoteControlProvider provider) async {
-    print(
-      '🔴 [RemoteControlHostScreen] _endSession called (status=${provider.status})'
-    );
-
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
@@ -425,7 +350,6 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
             AccessibleButton(
               label: 'Terminar',
               isDestructive: true,
-              // TODO: The error is still here, the navigation to home is happening before the session ends.
               onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
@@ -434,28 +358,16 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
     );
 
     if (confirmed == true) {
-      print(
-        '🔴 [RemoteControlHostScreen] User confirmed end session, calling endRemoteSession()...'
-      );
-
       // Mark that user manually ended the session to prevent auto-restart
       _userManuallyEndedSession = true;
 
       // Wait for session to fully end before navigating
       await provider.endRemoteSession();
 
-      print(
-        '🔴 [RemoteControlHostScreen] endRemoteSession() completed, status=${provider.status}'
-      );
-
       // Give provider a moment to finish all cleanup operations
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        print(
-          '🔴 [RemoteControlHostScreen] Navigating to home...'
-        );
-
         // Redirigir al Home Screen
         Navigator.of(context).popUntil((route) => route.isFirst);
 
@@ -470,19 +382,7 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
             duration: const Duration(seconds: 2),
           ),
         );
-
-        print(
-          '🔴 [RemoteControlHostScreen] Navigation to home completed'
-        );
-      } else {
-        print(
-          '⚠️  [RemoteControlHostScreen] Widget not mounted, skipping navigation'
-        );
       }
-    } else {
-      print(
-        '🟡 [RemoteControlHostScreen] User cancelled end session'
-      );
     }
   }
 
@@ -506,10 +406,7 @@ class _RemoteControlHostScreenState extends State<RemoteControlHostScreen> {
         'Código de sesión: $formattedCode',
       );
     } catch (e) {
-      // Log error but don't block UI (non-critical feature)
-      print(
-        'Failed to repeat session code via TTS'
-      );
+      // Non-critical feature, continue without logging
     } finally {
       if (mounted) {
         setState(() {

@@ -234,6 +234,24 @@ class RemoteViewerProvider extends ChangeNotifier {
     try {
       _setStatus(RemoteViewerStatus.disconnected);
 
+      // Mark session as ended in Firestore BEFORE cleanup
+      // This signals to the host that this was an intentional disconnect
+      if (_sessionCode != null) {
+        try {
+          await _signalingService.endSession(_sessionCode!);
+          developer.log(
+            'Session marked as ended in Firestore',
+            name: 'RemoteViewerProvider',
+          );
+        } catch (e) {
+          developer.log(
+            'Failed to mark session as ended (continuing with cleanup)',
+            name: 'RemoteViewerProvider',
+            error: e,
+          );
+        }
+      }
+
       // Cleanup resources
       await _cleanup();
 
@@ -295,13 +313,6 @@ class RemoteViewerProvider extends ChangeNotifier {
           _setStatus(RemoteViewerStatus.connected);
           break;
         case RemoteSessionStatus.ended:
-          _lastError = AppError(
-            category: ErrorCategory.webRTC,
-            code: ErrorCodes.wrtcSessionExpired,
-            technicalMessage: 'Host ended the session',
-            userMessage: 'El host terminó la sesión',
-            canRetry: false,
-          );
           _setStatus(RemoteViewerStatus.disconnected);
           _setError('El host terminó la sesión');
           _cleanup();

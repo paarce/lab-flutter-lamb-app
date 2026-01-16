@@ -15,10 +15,6 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(
-      '🏠 [HomeScreen] build called - HomeScreen is now visible'
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Asistente'),

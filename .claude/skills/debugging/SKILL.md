@@ -126,3 +126,48 @@ Cuando algo no funciona:
 - [ ] ¿Probaste en dispositivo físico (no solo emulador)?
 - [ ] ¿Los permisos están declarados y solicitados?
 - [ ] ¿La funcionalidad requiere conexión a internet?
+
+---
+
+## Workflow Eficiente de Debugging
+
+### Principios de Optimización de Tokens
+
+1. **Usuario valida, Claude arregla** - Usuario ejecuta comandos de validación
+2. **Confía en el contexto** - No releer archivos ya conocidos
+3. **Fixes dirigidos** - Cambios pequeños y verificables
+4. **Iteración rápida** - Máximo 2-3 iteraciones por error
+
+### Qué NO ejecutar automáticamente
+
+- ❌ NO ejecutes `flutter analyze`
+- ❌ NO ejecutes `flutter logs`
+- ❌ NO ejecutes `flutter run`
+- ✅ Pide al usuario que ejecute y comparta resultado
+
+### Qué NO leer innecesariamente
+
+- ❌ NO releas archivos ya vistos en los últimos 3 mensajes
+- ❌ NO leas archivo completo si solo necesitas una sección
+- ✅ Usa contexto de conversación existente
+- ✅ Usa Grep para búsquedas específicas
+
+### Formato de Respuesta Eficiente
+
+```markdown
+**Análisis del error:**
+[Explicación breve del problema]
+
+**Fix propuesto:**
+[Descripción de cambios a realizar]
+
+**Validación:**
+Por favor ejecuta `flutter analyze` y comparte líneas con "error •"
+```
+
+### Métricas de Éxito
+
+- Menos de 3 lecturas de archivo por fix
+- Menos de 2 iteraciones por error
+- Usuario ejecuta validaciones, no Claude
+- Solución en <5 mensajes

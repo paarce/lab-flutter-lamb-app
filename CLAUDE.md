@@ -119,10 +119,15 @@ lib/
 │   ├── webrtc_signaling_message.dart     ✅ Mensajes WebRTC
 │   ├── command.dart                      🔜 Modelo de comandos
 │   └── whatsapp_action.dart              🔜 Modelo de acciones WhatsApp
-└── utils/
-    ├── error_messages.dart               ✅ Mensajes accesibles para usuario
-    ├── nlp_parser.dart                   🔜 Parser de lenguaje natural
-    └── constants.dart                    🔜 Constantes globales
+├── utils/
+│   ├── error_messages.dart               ✅ Mensajes accesibles para usuario
+│   ├── nlp_parser.dart                   🔜 Parser de lenguaje natural
+│   └── constants.dart                    🔜 Constantes globales
+└── widgets/                              ✅ WIDGETS REUTILIZABLES
+    ├── accessible_button.dart            ✅ Botón accesible (80dp, Semantics)
+    ├── base_screen_layout.dart           ✅ Layout base con footer sticky
+    ├── connection_status_indicator.dart  ✅ Indicador de estado WebRTC
+    └── session_code_display.dart         ✅ Display de código de sesión
 
 android/app/src/main/kotlin/
 ├── MainActivity.kt                       ✅ Implementado (básico)
@@ -164,6 +169,48 @@ android/app/src/main/kotlin/
 - **platform-channels/** - Guía de implementación de platform channels
 - **debugging/** - Debugging específico de Flutter/Android
 - **development/** - Workflow de desarrollo general
+
+---
+
+## Widgets Reutilizables
+
+### BaseScreenLayout - Layout Base para Pantallas
+
+Widget estándar para crear pantallas consistentes en toda la app. Proporciona:
+- Contenido scrollable automáticamente
+- Footer sticky con botones principales
+- Semántica completa para TalkBack
+
+**Uso:**
+```dart
+BaseScreenLayout(
+  title: 'Título de Pantalla',
+  showBackButton: true,              // Mostrar botón ← (default: true)
+  content: [
+    // Lista de widgets scrollables
+    ConnectionStatusIndicator(...),
+    SessionCodeDisplay(...),
+  ],
+  footerActions: [
+    // 1-3 botones sticky en el footer
+    AccessibleButton(
+      label: 'Acción Principal',
+      onPressed: () => ...,
+    ),
+  ],
+)
+```
+
+**Características:**
+- Contenido automáticamente scrollable (SingleChildScrollView)
+- Footer sticky usando `persistentFooterButtons` de Scaffold
+- Semántica con `container: true` en el footer
+- Espaciado consistente: 24dp en contenido, 16dp entre botones
+- Si `footerActions` está vacío, no muestra footer
+
+**Parámetros opcionales:**
+- `appBarActions`: Widgets para el trailing del AppBar
+- `floatingActionButton`: FAB opcional
 
 ---
 

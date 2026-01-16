@@ -191,7 +191,6 @@ class _ClientViewerScreenState extends State<ClientViewerScreen> {
     final videoHeight = _renderer.videoHeight;
 
     if (videoWidth == 0 || videoHeight == 0) {
-      print('🔴 [ClientViewerScreen] Invalid video dimensions: $videoWidth x $videoHeight');
       return;
     }
 

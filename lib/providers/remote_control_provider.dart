@@ -103,8 +103,6 @@ class RemoteControlProvider extends ChangeNotifier {
   /// Returns session code if successful, null otherwise
   Future<String?> startRemoteSession() async {
     try {
-      print('🔵 [RemoteControlProvider] STEP 0: Starting remote control session');
-
       // Clear previous errors and reset cancellation flag
       _errorMessage = null;
       _isCancelled = false;
@@ -112,21 +110,16 @@ class RemoteControlProvider extends ChangeNotifier {
       _setStatus(RemoteControlStatus.creatingSession);
 
       // Step 1: Create session in Firestore
-      print('🔵 [RemoteControlProvider] STEP 1: Creating session in Firestore...');
       _currentSession = await _signalingService.createSession();
 
       // Check if cancelled after async operation
       if (_isCancelled) {
-        print('⚠️  [RemoteControlProvider] CANCELLED after STEP 1');
-        _currentSession = null; // Clear session data
+        _currentSession = null;
         await _cleanup();
         return null;
       }
 
-      print('🔵 [RemoteControlProvider] STEP 1: Session created: ${_currentSession?.sessionCode}');
-
       if (_currentSession == null) {
-        print('🔴 [RemoteControlProvider] STEP 1: Session is null');
         _setError('No se pudo crear la sesión remota. Intenta de nuevo.');
         _setStatus(RemoteControlStatus.error);
         return null;
@@ -134,71 +127,57 @@ class RemoteControlProvider extends ChangeNotifier {
 
       _setStatus(RemoteControlStatus.requestingPermission);
 
-      // Step 2: Start foreground service (REQUIRED for Android 14+)
-      // Must be started BEFORE MediaProjection is requested
-      print('🔵 [RemoteControlProvider] STEP 2a: Starting foreground service (Android 14+ requirement)');
+      // Step 2a: Start foreground service (REQUIRED for Android 14+)
       try {
         await _foregroundService.start();
 
-        // Check if cancelled after async operation
         if (_isCancelled) {
-          print('⚠️  [RemoteControlProvider] CANCELLED after STEP 2a');
           await _cleanup();
           return null;
         }
-
-        print('🔵 [RemoteControlProvider] STEP 2a: Foreground service started');
       } catch (e) {
-        print('🔴 [RemoteControlProvider] STEP 2a: Failed to start foreground service: $e');
+        developer.log(
+          'Failed to start foreground service',
+          name: 'RemoteControlProvider',
+          error: e,
+        );
         throw Exception(
           'No se pudo iniciar el servicio de captura de pantalla. '
           'Por favor, verifica los permisos de la aplicación.'
         );
       }
 
-      // Step 2b: Initialize WebRTC
-      // This will trigger MediaProjection permission dialog via flutter_webrtc
-      print('🔵 [RemoteControlProvider] STEP 2b: Initializing WebRTC for session: ${_currentSession!.sessionCode}');
-      print('⚠️  [RemoteControlProvider] NOTE: flutter_webrtc will request MediaProjection permission now');
+      // Step 2b: Initialize WebRTC (triggers MediaProjection permission)
       await _webrtcService.initializeAsHost(_currentSession!.sessionCode);
 
-      // Check if cancelled after async operation
       if (_isCancelled) {
-        print('⚠️  [RemoteControlProvider] CANCELLED after STEP 2b');
         await _cleanup();
         return null;
       }
 
-      print('🔵 [RemoteControlProvider] STEP 2b: WebRTC initialized');
-
       _setStatus(RemoteControlStatus.waitingForClient);
 
       // Step 3: Listen for session updates (client connection)
-      print('🔵 [RemoteControlProvider] STEP 3: Setting up session listeners');
       _listenToSessionUpdates();
 
       // Step 4: Listen for WebRTC connection state changes
-      print('🔵 [RemoteControlProvider] STEP 4: Setting up connection state listeners');
       _listenToConnectionState();
 
-      print('✅ [RemoteControlProvider] SUCCESS: Remote session started: ${_currentSession!.sessionCode}');
+      developer.log(
+        'Remote session started: ${_currentSession!.sessionCode}',
+        name: 'RemoteControlProvider',
+      );
 
       notifyListeners();
       return _currentSession!.sessionCode;
     } on Exception catch (e) {
-      print('🔴 [RemoteControlProvider] EXCEPTION caught: $e');
-
       // Parse user-friendly error messages from exceptions
       String errorMessage = e.toString();
 
-      // Remove "Exception: " prefix if present
       if (errorMessage.startsWith('Exception: ')) {
         errorMessage = errorMessage.substring('Exception: '.length);
       }
 
-      print('🔴 [RemoteControlProvider] Error message: $errorMessage');
-
-      // Create AppError instance for detailed error handling
       _lastError = AppError(
         category: ErrorCategory.webRTC,
         code: ErrorCodes.wrtcConnectionFailed,
@@ -209,18 +188,17 @@ class RemoteControlProvider extends ChangeNotifier {
 
       _setError(errorMessage);
       _setStatus(RemoteControlStatus.error);
-
-      // Cleanup on error
-      print('🔴 [RemoteControlProvider] Running cleanup...');
       await _cleanup();
-      print('🔴 [RemoteControlProvider] Cleanup completed');
 
       return null;
     } catch (e, stackTrace) {
-      print('🔴 [RemoteControlProvider] UNEXPECTED ERROR caught: $e');
-      print('🔴 [RemoteControlProvider] Stack trace: $stackTrace');
+      developer.log(
+        'Unexpected error starting session',
+        name: 'RemoteControlProvider',
+        error: e,
+        stackTrace: stackTrace,
+      );
 
-      // Create AppError instance for detailed error handling
       _lastError = AppError(
         category: ErrorCategory.unknown,
         code: ErrorCodes.unknownError,
@@ -236,11 +214,7 @@ class RemoteControlProvider extends ChangeNotifier {
         'Por favor, cierra y vuelve a abrir la aplicación.',
       );
       _setStatus(RemoteControlStatus.error);
-
-      // Cleanup on error
-      print('🔴 [RemoteControlProvider] Running cleanup after unexpected error...');
       await _cleanup();
-      print('🔴 [RemoteControlProvider] Cleanup completed');
 
       return null;
     }
@@ -362,6 +336,17 @@ class RemoteControlProvider extends ChangeNotifier {
           break;
         case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
           _setStatus(RemoteControlStatus.connected);
+          break;
+        case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
+          // Client disconnected - treat as normal session end, not error
+          // The client should have marked the session as "ended" in Firestore
+          developer.log(
+            'Client disconnected - treating as normal session end',
+            name: 'RemoteControlProvider',
+          );
+          _clientInitiatedDisconnect = true;
+          _setStatus(RemoteControlStatus.ended);
+          _cleanup();
           break;
         case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
           // Only set error if not already marked as normal disconnect

@@ -45,26 +45,18 @@ class FirebaseSignalingService {
     BuildContext? context,
   }) async {
     try {
-      print('🟡 [FirebaseSignaling] Creating new remote session');
-
       // Generate new session
       final session = RemoteSession.create(hostDeviceId: hostDeviceId);
-      print(
-          '🟡 [FirebaseSignaling] Generated session code: ${session.sessionCode}');
-
-      print('🟡 [FirebaseSignaling] Storing session in Firestore...');
-      final startTime = DateTime.now();
 
       // Store in Firestore with session code as document ID
       await _sessionsCollection
           .doc(session.sessionCode)
           .set(session.toFirestore());
 
-      final duration = DateTime.now().difference(startTime);
-      print(
-          '✅ [FirebaseSignaling] Session created successfully: ${session.sessionCode}');
-      print(
-          '⏱️  [FirebaseSignaling] createSession() took: ${duration.inMilliseconds}ms (${(duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
+      developer.log(
+        'Session created: ${session.sessionCode}',
+        name: 'FirebaseSignalingService',
+      );
 
       return session;
     } catch (e, stackTrace) {
@@ -292,19 +284,21 @@ class FirebaseSignalingService {
   /// Updates session with WebRTC offer SDP (from host)
   Future<void> setOffer(String sessionCode, String sdp) async {
     try {
-      print('🟡 [FirebaseSignaling] setOffer: Updating session $sessionCode with offer (${sdp.length} chars)');
-      final startTime = DateTime.now();
-
-      // NO TIMEOUT - Let's see how long it REALLY takes
       await _sessionsCollection.doc(sessionCode).update({
         'offerSdp': sdp,
         'status': RemoteSessionStatus.connecting.toString().split('.').last,
       });
 
-      final duration = DateTime.now().difference(startTime);
-      print('✅ [FirebaseSignaling] setOffer: Updated successfully in ${duration.inMilliseconds}ms (${(duration.inMilliseconds / 1000).toStringAsFixed(1)}s)');
+      developer.log(
+        'Offer set for session: $sessionCode',
+        name: 'FirebaseSignalingService',
+      );
     } catch (e) {
-      print('🔴 [FirebaseSignaling] setOffer: Failed for session $sessionCode - $e');
+      developer.log(
+        'Failed to set offer for session: $sessionCode',
+        name: 'FirebaseSignalingService',
+        error: e,
+      );
       throw Exception('Failed to set offer: $e');
     }
   }

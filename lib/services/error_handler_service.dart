@@ -46,12 +46,14 @@ class ErrorHandlerService {
   /// - service: Nombre del servicio donde ocurrió (para logs)
   /// - canRetry: ¿Se puede reintentar? (muestra botón "Reintentar")
   /// - onRetry: Callback si usuario presiona "Reintentar"
+  /// - onDismiss: Callback si usuario presiona "Cerrar" (sin reintentar)
   static Future<void> handleError({
     required BuildContext context,
     required dynamic error,
     required String service,
     bool canRetry = false,
     VoidCallback? onRetry,
+    VoidCallback? onDismiss,
   }) async {
     // Paso 1: Normalizar el error a AppError
     final appError = _normalizeError(error, service);
@@ -84,6 +86,7 @@ class ErrorHandlerService {
         errorCode: appError.code,
         canRetry: canRetry,
         onRetry: onRetry,
+        onDismiss: onDismiss,
       );
     }
   }
@@ -177,6 +180,7 @@ class ErrorHandlerService {
     required String errorCode,
     required bool canRetry,
     VoidCallback? onRetry,
+    VoidCallback? onDismiss,
   }) {
     return showDialog<void>(
       context: context,
@@ -237,12 +241,14 @@ class ErrorHandlerService {
               label: ErrorMessages.closeButtonText,
               onTap: () {
                 Navigator.of(context).pop();
+                onDismiss?.call();
               },
               child: SizedBox(
                 height: 80,
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
+                    onDismiss?.call();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[600],
