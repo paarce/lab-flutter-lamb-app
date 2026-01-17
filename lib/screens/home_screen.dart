@@ -1,4 +1,7 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+
+import 'remote_control_host_screen.dart';
 
 /// Pantalla principal de la aplicación
 ///
@@ -78,14 +81,24 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Botón: Control Remoto (funcionalidad futura)
+              // Botón: Control Remoto
               Semantics(
                 label: 'Control remoto',
-                hint: 'Toca dos veces para iniciar control remoto',
+                hint: 'Toca dos veces para iniciar control remoto con tu familiar',
                 button: true,
-                enabled: false,
+                enabled: true,
                 child: ElevatedButton.icon(
-                  onPressed: null,
+                  onPressed: () {
+                    developer.log(
+                      '🏠 [HomeScreen] User pressed "Control Remoto" button',
+                      name: 'HomeScreen',
+                    );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const RemoteControlHostScreen(),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.screen_share, size: 32),
                   label: const Text('Control Remoto'),
                 ),

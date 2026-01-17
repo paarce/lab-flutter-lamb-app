@@ -134,13 +134,33 @@ try {
 
 ## Logging
 
+Usar **`developer.log()`** para TODOS los logs (NO usar `print()`).
+
 Agregar logs en:
 - Platform Channels (llamadas Dart ↔ Kotlin)
 - Operaciones de red (API calls)
 - Eventos críticos (conexión WebRTC, permisos)
+- Errores con contexto
+
 ```dart
-print('LOG [NombreClase.metodo]: Descripción del evento');
+import 'dart:developer' as developer;
+
+// Log básico
+developer.log(
+  'Session created successfully',
+  name: 'RemoteControlProvider',
+);
+
+// Log con error
+developer.log(
+  'Failed to connect to session',
+  name: 'WebRTCService',
+  error: e,
+  stackTrace: stackTrace,
+);
 ```
+
+**Ver regla completa:** `.claude/rules/logging.md`
 
 ## Comandos Útiles
 ```bash

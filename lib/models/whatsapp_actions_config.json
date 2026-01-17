@@ -1,0 +1,27 @@
+[
+  {
+    "id": "open_chat_phone",
+    "description": "Open a WhatsApp chat with a specific phone number (international format, no + or spaces).",
+    "url": "https://wa.me/{PHONE_NUMBER}"
+  },
+  {
+    "id": "open_chat_with_message",
+    "description": "Open a WhatsApp chat with a phone number and pre-filled text message.",
+    "url": "https://wa.me/{PHONE_NUMBER}?text={URL_ENCODED_TEXT}"
+  },
+  {
+    "id": "open_whatsapp_app",
+    "description": "Open the WhatsApp app (mobile only, no specific chat).",
+    "url": "whatsapp://"
+  },
+  {
+    "id": "open_chat_scheme",
+    "description": "Open a WhatsApp chat using the native app scheme (mobile only, unofficial but widely used).",
+    "url": "whatsapp://send?phone={PHONE_NUMBER}"
+  },
+  {
+    "id": "open_chat_scheme_with_message",
+    "description": "Open a WhatsApp chat with pre-filled text using the native scheme (mobile only).",
+    "url": "whatsapp://send?phone={PHONE_NUMBER}&text={URL_ENCODED_TEXT}"
+  }
+]

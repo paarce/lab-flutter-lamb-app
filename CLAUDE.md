@@ -31,8 +31,11 @@ El proyecto está en su fase inicial con la infraestructura base configurada y l
 - **Dart:** 3.0+
 - **State Management:** Provider
 
-### Servicios
-- **STT/TTS:** ElevenLabs Scribe v2 (principal), Android SpeechRecognizer (fallback)
+### Servicios de Voz
+- **STT (Speech-to-Text):** ElevenLabs Scribe v2 WebSocket (ultra-baja latencia 150ms, alta precisión)
+- **TTS (Text-to-Speech):** flutter_tts (motor nativo Android/iOS, gratis, offline, latencia 50-200ms)
+
+### Otros Servicios
 - **Control Remoto:** WebRTC custom + Firebase Firestore (signaling)
 - **Base de datos local:** Hive
 
@@ -60,6 +63,9 @@ http: ^1.1.0
 dio: ^5.4.0
 web_socket_channel: ^2.4.0
 
+# Text-to-Speech (TTS)
+flutter_tts: ^0.0.45  # Motor nativo Android/iOS
+
 # Storage
 hive: ^2.2.3
 hive_flutter: ^1.1.0
@@ -77,27 +83,51 @@ lib/
 ├── config/
 │   ├── secrets.dart                      ✅ Implementado (gitignored)
 │   └── secrets.example.dart              ✅ Implementado
+├── errors/                               ✅ GESTIÓN CENTRALIZADA DE ERRORES
+│   ├── app_error.dart                    ✅ Modelo base unificado
+│   ├── error_category.dart               ✅ Enums de categorías
+│   └── error_codes.dart                  ✅ Códigos de error normalizados
 ├── screens/
 │   ├── home_screen.dart                  ✅ Implementado
 │   ├── voice_command_screen.dart         🔜 Próxima funcionalidad
 │   ├── whatsapp_screen.dart              🔜 Próxima funcionalidad
 │   └── remote_control_screen.dart        🔜 Próxima funcionalidad
-├── services/                             🔜 Carpeta lista
-│   ├── elevenlabs_service.dart           🔜 STT/TTS
+├── services/
+│   ├── elevenlabs_service.dart           ✅ STT (Speech-to-Text)
+│   ├── tts/                              ✅ ABSTRACCIÓN ESCALABLE DE TTS
+│   │   ├── tts_service.dart              ✅ Interfaz abstracta
+│   │   ├── tts_config.dart               ✅ Configuración global
+│   │   ├── tts_factory.dart              ✅ Factory singleton
+│   │   └── implementations/
+│   │       └── flutter_tts_service.dart  ✅ Implementación activa (nativa)
+│   ├── firebase_signaling_service.dart   ✅ Firebase Signaling
+│   ├── webrtc_client_service.dart        ✅ WebRTC Client
+│   ├── webrtc_service.dart               ✅ WebRTC Base
+│   ├── foreground_service.dart           ✅ Servicio en primer plano
+│   ├── error_handler_service.dart        ✅ PUNTO CENTRAL DE ERRORES
+│   ├── logger_service.dart               ✅ Logging en memoria
+│   ├── ERROR_HANDLER_GUIDE.dart          ✅ Guía de uso (ejemplos)
 │   ├── whatsapp_service.dart             🔜 Platform Channel → Kotlin
-│   ├── webrtc_service.dart               🔜 Control remoto
 │   └── preferences_service.dart          🔜 Preferencias
-├── providers/                            🔜 Carpeta lista
+├── providers/
+│   ├── remote_control_provider.dart      ✅ State management control remoto
+│   ├── remote_viewer_provider.dart       ✅ State management viewer
 │   ├── voice_command_provider.dart       🔜 State management comandos
-│   ├── whatsapp_provider.dart            🔜 State management WhatsApp
-│   └── remote_control_provider.dart      🔜 State management control remoto
-├── models/                               🔜 Carpeta lista
+│   └── whatsapp_provider.dart            🔜 State management WhatsApp
+├── models/
+│   ├── remote_session.dart               ✅ Modelo de sesiones remotas
+│   ├── webrtc_signaling_message.dart     ✅ Mensajes WebRTC
 │   ├── command.dart                      🔜 Modelo de comandos
-│   ├── whatsapp_action.dart              🔜 Modelo de acciones WhatsApp
-│   └── remote_session.dart               🔜 Modelo de sesiones remotas
-└── utils/                                🔜 Carpeta lista
-    ├── nlp_parser.dart                   🔜 Parser de lenguaje natural
-    └── constants.dart                    🔜 Constantes globales
+│   └── whatsapp_action.dart              🔜 Modelo de acciones WhatsApp
+├── utils/
+│   ├── error_messages.dart               ✅ Mensajes accesibles para usuario
+│   ├── nlp_parser.dart                   🔜 Parser de lenguaje natural
+│   └── constants.dart                    🔜 Constantes globales
+└── widgets/                              ✅ WIDGETS REUTILIZABLES
+    ├── accessible_button.dart            ✅ Botón accesible (80dp, Semantics)
+    ├── base_screen_layout.dart           ✅ Layout base con footer sticky
+    ├── connection_status_indicator.dart  ✅ Indicador de estado WebRTC
+    └── session_code_display.dart         ✅ Display de código de sesión
 
 android/app/src/main/kotlin/
 ├── MainActivity.kt                       ✅ Implementado (básico)
@@ -142,6 +172,48 @@ android/app/src/main/kotlin/
 
 ---
 
+## Widgets Reutilizables
+
+### BaseScreenLayout - Layout Base para Pantallas
+
+Widget estándar para crear pantallas consistentes en toda la app. Proporciona:
+- Contenido scrollable automáticamente
+- Footer sticky con botones principales
+- Semántica completa para TalkBack
+
+**Uso:**
+```dart
+BaseScreenLayout(
+  title: 'Título de Pantalla',
+  showBackButton: true,              // Mostrar botón ← (default: true)
+  content: [
+    // Lista de widgets scrollables
+    ConnectionStatusIndicator(...),
+    SessionCodeDisplay(...),
+  ],
+  footerActions: [
+    // 1-3 botones sticky en el footer
+    AccessibleButton(
+      label: 'Acción Principal',
+      onPressed: () => ...,
+    ),
+  ],
+)
+```
+
+**Características:**
+- Contenido automáticamente scrollable (SingleChildScrollView)
+- Footer sticky usando `persistentFooterButtons` de Scaffold
+- Semántica con `container: true` en el footer
+- Espaciado consistente: 24dp en contenido, 16dp entre botones
+- Si `footerActions` está vacío, no muestra footer
+
+**Parámetros opcionales:**
+- `appBarActions`: Widgets para el trailing del AppBar
+- `floatingActionButton`: FAB opcional
+
+---
+
 ## Convenciones de Código
 
 ### Dart/Flutter
@@ -173,6 +245,136 @@ android/app/src/main/kotlin/
 - ✅ Botones: mínimo **80dp altura**
 - ✅ Texto: mínimo **24sp**
 - ✅ Testar con TalkBack antes de commit
+
+### Optimización de Tokens (Eficiencia)
+
+**Usuario ejecuta manualmente:**
+- `flutter analyze` - Usuario reporta errores específicos
+- `flutter test` - Usuario ejecuta y reporta resultados
+- `flutter run` - Usuario ejecuta la app
+- `flutter logs` - Usuario filtra y comparte logs relevantes
+
+**Claude solo ejecuta:**
+- Comandos git (status, diff, commit, etc.)
+- Ediciones de archivos (Write, Edit, Read cuando necesario)
+
+**Minimizar lecturas:**
+- Confiar en contexto de mensajes anteriores (no releer archivos)
+- Leer solo secciones necesarias con offset/limit
+- Usar Grep para búsquedas específicas vs Read de archivo completo
+- Usuario provee errores/logs exactos en lugar de ejecutar comandos
+
+**Ver:** `.claude/rules/token-optimization.md` para detalles completos
+
+---
+
+## 🚨 Gestión Centralizada de Errores (NUEVO)
+
+### Arquitectura
+
+La app usa un **servicio central único** (`ErrorHandlerService`) para manejar TODOS los errores. Esto garantiza:
+
+✅ **Consistencia:** Mismo flujo para todos los errores
+✅ **Accesibilidad:** Diálogos modales + TTS obligatorio
+✅ **Debugging:** Logging centralizado + códigos normalizados
+✅ **Sin confusión:** Sin reintentos automáticos
+
+### Archivos Relacionados
+
+- **`lib/errors/app_error.dart`** - Modelo base unificado para todos los errores
+- **`lib/errors/error_category.dart`** - Categorías: PlatformChannel, Firebase, ElevenLabs, WebRTC, Network
+- **`lib/errors/error_codes.dart`** - Códigos normalizados por categoría
+- **`lib/services/error_handler_service.dart`** - ⭐️ **PUNTO CENTRAL** - Usa SIEMPRE este servicio
+- **`lib/services/logger_service.dart`** - Logging en memoria (máximo 100 logs)
+- **`lib/utils/error_messages.dart`** - Mensajes accesibles en español para usuario + TTS
+- **`lib/services/ERROR_HANDLER_GUIDE.dart`** - Ejemplos y mejores prácticas
+
+### Uso Simple
+
+```dart
+// EN CUALQUIER SERVICE, PROVIDER O SCREEN:
+try {
+  await miServicio.hacerAlgo();
+} catch (e) {
+  if (context.mounted) {
+    await ErrorHandlerService.handleError(
+      context: context,
+      error: e,
+      service: 'MiService',
+      canRetry: true,  // Mostrar botón "Reintentar"
+      onRetry: () => miServicio.hacerAlgo(),
+      ttsService: context.read<ElevenLabsService>(),
+    );
+  }
+}
+```
+
+### Características Automáticas
+
+1. **Normaliza cualquier error:**
+   - `AppError` → se usa directamente
+   - `PlatformException` → convierte a AppError
+   - `FirebaseException` → categoriza como firebase
+   - `SocketException` → detecta como error de red
+   - Otros → marca como unknown
+
+2. **Genera mensaje accesible:**
+   - Automáticamente en español
+   - Lenguaje simple (para personas 60+)
+   - Optimizado para TTS
+
+3. **Reproduce con TTS:**
+   - Si `ttsService` disponible, reproduce el mensaje
+   - Si TTS falla, continúa sin romper
+
+4. **Muestra diálogo modal:**
+   - Modal (visible para baja visión)
+   - Botones 80dp + texto 24sp
+   - Semantics para TalkBack
+   - Siempre: botón "Cerrar"
+   - Condicionalmente: botón "Reintentar"
+
+5. **Registra logs:**
+   - Todos los errores en memoria
+   - Máximo 100 logs (FIFO)
+   - Timestamps + tags + stack traces
+
+### Categorías de Errores (en orden de criticidad)
+
+```
+1. PLATFORM_CHANNEL   → Errores de Kotlin/Android
+2. FIREBASE           → Firestore, Authentication
+3. ELEVENLABS         → STT/TTS API
+4. WEBRTC             → Control remoto
+5. NETWORK            → Internet connectivity
+6. UNKNOWN            → No clasificado
+```
+
+### Cuándo Usar `canRetry`
+
+**`canRetry=true`** (mostrar botón "Reintentar"):
+- Error transitorio (sin internet, timeout)
+- Reintentar tiene sentido
+- No es configuración faltante
+
+**`canRetry=false`** (solo botón "Cerrar"):
+- Error permanente (permiso denegado)
+- Necesita acción manual (Configuración)
+- Reintentar sin cambios no ayuda
+
+### Mejores Prácticas
+
+✅ **HACER:**
+- Pasar `ttsService: context.read<ElevenLabsService>()`
+- Ofrecer `onRetry` solo si tiene sentido
+- Usar nombres de service descriptivos
+- Capturar errors en try-catch
+
+❌ **NO HACER:**
+- Mostrar diálogos de error manuales (usa ErrorHandlerService)
+- Reintentos automáticos
+- Mensajes técnicos al usuario
+- Ignorar errores en Platform Channel
 
 ---
 
@@ -258,23 +460,54 @@ git clone https://github.com/rustdesk/rustdesk.git
 
 ---
 
-## Integración ElevenLabs
+## Estrategia de Voz: STT vs TTS
 
-### STT (WebSocket)
+### STT (Speech-to-Text) - ElevenLabs Scribe v2
+ElevenLabs sigue siendo la solución principal para STT:
+- Ultra-baja latencia: 150ms
+- Alta precisión para adultos mayores
+- Soporte 90+ idiomas (incluido español)
+- WebSocket para streaming realtime
+
 ```dart
 final channel = WebSocketChannel.connect(
-  Uri.parse('wss://api.elevenlabs.io/v1/speech-to-text/realtime')
+  Uri.parse('wss://api.elevenlabs.io/v1/speech-to-text/realtime?api_key=$apiKey'),
 );
 ```
 
-### TTS (REST)
+### TTS (Text-to-Speech) - flutter_tts (Motor Nativo)
+
+**Cambio:** Migrado de ElevenLabs TTS a flutter_tts (motor nativo).
+
+#### Implementación: flutter_tts
+- **Motor:** Android TTS nativo / iOS VoiceOver
+- **Costo:** Gratis
+- **Latencia:** 50-200ms (muy rápido)
+- **Ventajas:** Offline, confiable, accesible, sin costos de API
+- **Desventaja:** Voz menos natural que ElevenLabs
+
 ```dart
-await http.post(
-  Uri.parse('https://api.elevenlabs.io/v1/text-to-speech/$voiceId'),
-  headers: {'xi-api-key': Secrets.elevenLabsApiKey},
-  body: json.encode({'text': text})
-);
+// Usar desde cualquier lado via TTSFactory
+final ttsService = TTSFactory.getInstance();
+await ttsService.speak('Hola mundo');
 ```
+
+#### Configuración (Global)
+```dart
+// lib/services/tts/tts_config.dart
+class TTSConfig {
+  static const String language = 'es-ES';
+  static const double pitch = 1.0;
+  static const double speed = 1.0;
+  static const double volume = 1.0;
+}
+```
+
+**Ventajas de usar flutter_tts:**
+- ✅ Sin dependencia de APIs externas
+- ✅ Funciona offline
+- ✅ Sin costos adicionales
+- ✅ Accesible y confiable para usuarios con baja visión
 
 ---
 

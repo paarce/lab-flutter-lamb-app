@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
+import 'firebase_options.dart';
+import 'providers/remote_control_provider.dart';
 import 'screens/home_screen.dart';
+import 'services/firebase_signaling_service.dart';
+import 'services/error_handler_service.dart';
+import 'services/logger_service.dart';
+import 'services/tts/tts_factory.dart';
 
 /// Entry point de la aplicación
 /// Inicializa Firebase, Hive y Provider antes de ejecutar la app
@@ -11,8 +18,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Inicializar Firebase
-    await Firebase.initializeApp();
+    // Inicializar Firebase usando configuración desde secrets
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     debugPrint('[Firebase] Inicializado correctamente');
   } catch (e) {
     debugPrint('[Firebase] Error al inicializar: $e');
@@ -38,17 +47,35 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Agregar MultiProvider cuando haya providers
-    // Por ahora usamos MaterialApp directamente
-    // Ejemplo futuro:
-    // return MultiProvider(
-    //   providers: [
-    //     ChangeNotifierProvider(create: (_) => VoiceCommandProvider()),
-    //   ],
-    //   child: MaterialApp(...),
-    // );
+    return MultiProvider(
+      providers: [
+        // Logging service (Singleton)
+        Provider<LoggerService>(
+          create: (_) => LoggerService(),
+        ),
 
-    return MaterialApp(
+        // Initialize services
+        Provider<FirebaseSignalingService>(
+          create: (_) => FirebaseSignalingService(),
+        ),
+        // TTS Service (Singleton) - Inyectar para acceso desde Providers/Screens
+        Provider(
+          create: (_) => TTSFactory.getInstance(),
+        ),
+
+        // Error handler service (Singleton)
+        Provider<ErrorHandlerService>(
+          create: (_) => ErrorHandlerService(),
+        ),
+
+        // Initialize providers with dependencies
+        ChangeNotifierProvider<RemoteControlProvider>(
+          create: (context) => RemoteControlProvider(
+            signalingService: context.read<FirebaseSignalingService>(),
+          ),
+        ),
+      ],
+      child: MaterialApp(
         title: 'Asistente de Accesibilidad',
         debugShowCheckedModeBanner: false,
 
@@ -72,7 +99,8 @@ class MyApp extends StatelessWidget {
             child: child!,
           );
         },
-      );
+      ),
+    );
   }
 
   /// Construye un tema accesible según las reglas de WCAG 2.1 AA
