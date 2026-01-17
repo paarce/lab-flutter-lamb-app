@@ -588,29 +588,158 @@ Para que una funcionalidad se considere **LISTO**, debe cumplir:
 
 ---
 
+### FUNCIONALIDAD 7: Configuración de Release para Producción
+
+#### Historia de Usuario
+```
+Como desarrollador del proyecto
+Quiero tener configurada la firma de releases de Android
+Para poder publicar la aplicación en Google Play Store de forma segura
+```
+
+#### Criterios de Aceptación Funcional
+- [ ] Keystore generado y almacenado de forma segura
+- [ ] Build de release firmado correctamente funciona
+- [ ] APK release puede instalarse en dispositivos de producción
+- [ ] Verificación de firma funciona correctamente
+- [ ] Documentación completa del proceso de release
+
+#### Criterios de Aceptación Técnico
+- [ ] Keystore generado con `keytool` usando parámetros seguros:
+  - Algoritmo: RSA
+  - Tamaño de clave: 2048 bits
+  - Validez: 10000 días (requerido por Google Play)
+- [ ] `build.gradle` configurado con `signingConfigs.release`
+- [ ] Variables de entorno configuradas en `.env`:
+  - `LAMB_KEY_ALIAS`
+  - `LAMB_KEY_PASSWORD`
+  - `LAMB_KEYSTORE_PATH`
+  - `LAMB_STORE_PASSWORD`
+- [ ] `.gitignore` actualizado para proteger:
+  - `*.jks`
+  - `*.keystore`
+  - `.env`
+- [ ] Archivo `.env.example` creado con template
+- [ ] README actualizado con proceso de release
+- [ ] Build de release funciona: `flutter build apk --release`
+- [ ] Verificación de firma: `jarsigner -verify -verbose -certs app-release.apk`
+
+#### Edge Cases y Manejo de Errores
+- ¿Qué pasa si las variables de entorno no están configuradas?
+  - Build falla con mensaje claro indicando variables faltantes
+  - Mensaje apunta a README con instrucciones
+- ¿Qué pasa si el keystore no existe o la ruta es incorrecta?
+  - Build falla indicando que el keystore no se encuentra
+  - Verificar que la ruta en `.env` es absoluta y correcta
+- ¿Qué pasa si las contraseñas son incorrectas?
+  - Build falla con error de autenticación
+  - No revelar información de seguridad en logs
+- ¿Qué pasa si se commitea el keystore accidentalmente?
+  - Pre-commit hook debe prevenir commit de archivos sensibles
+  - Documentar proceso de rotación de claves si ocurre
+
+#### Dependencias Técnicas
+- **Herramientas requeridas:**
+  - `keytool` (incluido en JDK)
+  - Android SDK Build Tools
+- **Servicios de terceros:**
+  - Google Play Console (para upload de APK)
+- **Seguridad:**
+  - Gestor de contraseñas para almacenar passwords del keystore
+  - Backup seguro del keystore (si se pierde, no se puede actualizar la app en Play Store)
+
+#### Documentación del Proceso
+
+**Paso 1: Generar Keystore**
+```bash
+keytool -genkey -v \
+  -keystore ~/lamb-release-key.jks \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -alias lamb-key
+```
+
+**Paso 2: Crear archivo .env**
+```bash
+cp .env.example .env
+# Editar .env con valores reales
+```
+
+**Paso 3: Configurar build.gradle**
+```gradle
+android {
+    signingConfigs {
+        release {
+            keyAlias System.getenv("LAMB_KEY_ALIAS")
+            keyPassword System.getenv("LAMB_KEY_PASSWORD")
+            storeFile file(System.getenv("LAMB_KEYSTORE_PATH"))
+            storePassword System.getenv("LAMB_STORE_PASSWORD")
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+```
+
+**Paso 4: Build de Release**
+```bash
+# Cargar variables de entorno
+export $(cat .env | xargs)
+
+# Build APK de release
+flutter build apk --release
+
+# Verificar firma
+jarsigner -verify -verbose -certs build/app/outputs/flutter-apk/app-release.apk
+```
+
+#### Checklist de Seguridad
+- [ ] Keystore almacenado fuera del repositorio git
+- [ ] Keystore respaldado en ubicación segura (cloud encriptado, USB, etc.)
+- [ ] Contraseñas almacenadas en gestor de contraseñas
+- [ ] Variables de entorno nunca commiteadas
+- [ ] `.gitignore` previene commit de archivos sensibles
+- [ ] Documentación no contiene contraseñas reales
+- [ ] Proceso de rotación de claves documentado
+
+#### Estatus
+- [ ] Por hacer
+- [ ] En desarrollo
+- [ ] En pruebas
+- [ ] Listo
+
+#### Prioridad
+**P1 (Alta - Pre-Producción):** Debe completarse antes del lanzamiento en Google Play Store, pero no es bloqueante para desarrollo del MVP.
+
+---
+
 ## BACKLOG FUTURO (Post-MVP - v1.0)
 
 Estas funcionalidades están fuera del MVP pero documentadas para v1.0 (Semanas 7-12):
 
-### FUNCIONALIDAD 7: AccessibilityService para WhatsApp Automation
+### FUNCIONALIDAD 8: AccessibilityService para WhatsApp Automation
 - Automatización avanzada: abrir chat por nombre (no número), leer mensajes, enviar mensajes
 - **Riesgo:** Muy frágil ante actualizaciones de WhatsApp
 - **Prioridad v1.0:** P1 (importante pero no crítica, deep links cubren necesidad básica)
 
-### FUNCIONALIDAD 8: Comandos de Voz Expandidos
+### FUNCIONALIDAD 9: Comandos de Voz Expandidos
 - "Lee mis mensajes de [contacto]"
 - "Envía mensaje a [contacto] diciendo [texto]"
 - "¿Tengo mensajes nuevos?"
 - "Llama a [contacto]"
 - Parser NLP mejorado con contexto y sinónimos
 
-### FUNCIONALIDAD 9: Notificaciones Inteligentes
+### FUNCIONALIDAD 10: Notificaciones Inteligentes
 - Listener de notificaciones de WhatsApp
 - Anuncio automático de mensajes nuevos en voz alta
 - Configuración de contactos VIP
 - Control de frecuencia de anuncios
 
-### FUNCIONALIDAD 10: Personalización de Accesibilidad
+### FUNCIONALIDAD 11: Personalización de Accesibilidad
 - Velocidad de voz TTS ajustable
 - Modo ultra alto contraste
 - Tamaño de botones ajustable (80-120dp)
@@ -666,10 +795,660 @@ Estas funcionalidades están fuera del MVP pero documentadas para v1.0 (Semanas 
 
 ---
 
+## FUNCIONALIDAD 2.1: Cliente WebRTC para Control Remoto (App del Familiar)
+
+### Fecha de planeación: 08 Enero 2026
+### Prioridad: **P0 (Crítica - Requerida para completar MVP)**
+### Estatus: Por iniciar
+
+---
+
+### Contexto
+
+Durante las pruebas de la Funcionalidad 2 (TC-HP-001 a TC-HP-008), se validó exitosamente el lado del **host/servidor** (adulto mayor). Sin embargo, **no es posible probar la conexión WebRTC completa** sin el lado del **cliente** (familiar que se conecta).
+
+La Funcionalidad 2.1 es **fundamental para el MVP** porque:
+- ✅ Sin cliente, no podemos validar que WebRTC funciona end-to-end
+- ✅ No podemos probar estados críticos: `connecting`, `connected`
+- ✅ No podemos validar la transmisión de pantalla real
+- ✅ No podemos probar el control táctil remoto
+- ✅ No hay forma de hacer pruebas completas con usuarios reales
+
+**Decisión:** Priorizar desarrollo del cliente inmediatamente después de validar el host.
+
+---
+
+### Historia de Usuario
+
+```
+Como familiar de una persona con baja visión
+Quiero conectarme al dispositivo de mi familiar ingresando un código de 6 dígitos
+Para poder ver su pantalla en tiempo real y ayudarle tocando elementos que él necesita activar
+```
+
+---
+
+### Alcance del Cliente MVP
+
+#### **Plataforma Inicial: Web App (PWA)**
+**Justificación:**
+- ✅ Desarrollo más rápido que app nativa (1 semana vs 2-3 semanas)
+- ✅ No requiere instalación (el familiar solo abre un link)
+- ✅ Funciona en cualquier dispositivo (Android, iOS, PC, Mac)
+- ✅ Usa `flutter_webrtc` que ya soporta web
+- ✅ Permite testing inmediato sin compilaciones
+
+**Plan futuro:** App nativa Android/iOS en v2.2 (post-MVP)
+
+---
+
+### Criterios de Aceptación Funcional
+
+#### **Pantalla 1: Ingresar Código de Sesión**
+- [ ] Input numérico para código de 6 dígitos
+- [ ] Botón "Conectar" grande y visible
+- [ ] Validación: solo acepta 6 dígitos numéricos (2-9, sin 0/1)
+- [ ] Mensaje de error claro si código inválido
+- [ ] Loading indicator mientras se conecta
+
+#### **Pantalla 2: Visualización de Pantalla Remota**
+- [ ] Stream de video de la pantalla del adulto mayor se muestra en tiempo real
+- [ ] Video ocupa toda la pantalla (fullscreen) o es maximizable
+- [ ] Latencia < 2 segundos en WiFi
+- [ ] Controles de sesión visibles: "Desconectar", "Pantalla completa"
+- [ ] Indicador de estado de conexión: "Conectando...", "Conectado", "Desconectado"
+
+#### **Funcionalidad de Control Táctil (MVP Básico)**
+- [ ] Al tocar en la pantalla del cliente, se simula un tap en el dispositivo del host
+- [ ] Coordenadas se escalan correctamente (resolución cliente → resolución host)
+- [ ] Feedback visual: círculo temporal donde se tocó
+- [ ] **Limitación MVP:** Solo taps simples (no gestos complejos, no scroll, no pinch-to-zoom)
+
+#### **Manejo de Desconexión**
+- [ ] Si host termina la sesión, cliente recibe notificación y vuelve a pantalla inicial
+- [ ] Si conexión se pierde, muestra mensaje: "Conexión perdida. Reconectando..."
+- [ ] Intenta reconectar automáticamente 3 veces antes de fallar
+- [ ] Botón "Volver a intentar" si reconexión falla
+
+---
+
+### Criterios de Aceptación Técnico
+
+#### **Stack Técnico**
+- [ ] **Frontend:** Flutter Web (compile con `flutter build web`)
+- [ ] **WebRTC:** `flutter_webrtc` v0.9.48+ (mismo que host)
+- [ ] **Signaling:** Firebase Firestore (mismo backend que host)
+- [ ] **Hosting:** Firebase Hosting (deploy con `firebase deploy`)
+- [ ] **URL:** `https://lamb-remote.web.app` o similar
+
+#### **Arquitectura**
+```
+lib/
+├── main_web.dart                    # Entry point para web
+├── screens/
+│   ├── client_connect_screen.dart   # Pantalla 1: Ingresar código
+│   └── client_viewer_screen.dart    # Pantalla 2: Ver pantalla remota
+├── services/
+│   └── webrtc_client_service.dart   # Cliente WebRTC
+└── providers/
+    └── remote_viewer_provider.dart  # State management del cliente
+```
+
+#### **Flujo de Conexión WebRTC**
+
+**Cliente:**
+1. Usuario ingresa código de 6 dígitos
+2. Cliente busca sesión en Firestore: `remote_sessions/{sessionCode}`
+3. Si existe y `status == 'waiting'`, obtiene el `offer` SDP del host
+4. Cliente crea `RTCPeerConnection`
+5. Cliente setea el `offer` como remote description
+6. Cliente crea `answer` SDP
+7. Cliente guarda `answer` en Firestore: `remote_sessions/{sessionCode}/answer`
+8. Cliente escucha ICE candidates del host y los agrega
+9. WebRTC establece conexión P2P
+10. Cliente recibe el stream de video y lo renderiza
+
+**Signaling (Firestore):**
+```
+remote_sessions/{sessionCode}/
+  ├── offer: String (SDP del host)
+  ├── answer: String (SDP del cliente)
+  ├── status: 'waiting' | 'connecting' | 'connected' | 'ended'
+  ├── hostIceCandidates: Array<IceCandidate>
+  ├── clientIceCandidates: Array<IceCandidate>
+  └── lastActivity: Timestamp
+```
+
+#### **Comunicación de Control Táctil**
+
+**Canal de datos WebRTC:**
+```dart
+// Host crea data channel
+RTCDataChannel dataChannel = await peerConnection.createDataChannel(
+  'control',
+  RTCDataChannelInit(),
+);
+
+// Cliente envía eventos táctiles
+dataChannel.send(json.encode({
+  'type': 'tap',
+  'x': normalizedX,  // 0.0 - 1.0
+  'y': normalizedY,  // 0.0 - 1.0
+  'timestamp': DateTime.now().millisecondsSinceEpoch,
+}));
+```
+
+**Host recibe y ejecuta:**
+- Escala coordenadas normalizadas a píxeles de pantalla del host
+- Usa `AccessibilityService.simulateTap()` (Kotlin) para simular el tap
+
+---
+
+### Casos de Uso Críticos (Testing)
+
+#### **TC-CLIENT-001: Conectar con código válido (P0)**
+**Pasos:**
+1. Host inicia sesión remota (código: 234567)
+2. Cliente abre web app
+3. Cliente ingresa: 234567
+4. Cliente presiona "Conectar"
+
+**Resultado esperado:**
+- ✅ Cliente muestra "Conectando..."
+- ✅ En 5-10 segundos, aparece pantalla del host
+- ✅ Host ve estado cambiar a "Conectado"
+- ✅ Cliente puede ver la pantalla en tiempo real
+
+#### **TC-CLIENT-002: Código inválido (P0)**
+**Pasos:**
+1. Cliente ingresa código que no existe: 999999
+2. Cliente presiona "Conectar"
+
+**Resultado esperado:**
+- ✅ Mensaje de error: "Código de sesión no encontrado o expirado"
+- ✅ Vuelve a pantalla de ingreso de código
+
+#### **TC-CLIENT-003: Control táctil básico (P0)**
+**Pasos:**
+1. Cliente conectado exitosamente
+2. Cliente toca en el botón "WhatsApp" visible en la pantalla del host
+3. Observar dispositivo del host
+
+**Resultado esperado:**
+- ✅ En el host, el botón "WhatsApp" se presiona (animación de tap)
+- ✅ Acción correspondiente se ejecuta (ej: abre WhatsApp)
+- ✅ Feedback visual en cliente: círculo breve donde se tocó
+
+#### **TC-CLIENT-004: Desconexión del host (P1)**
+**Pasos:**
+1. Cliente conectado
+2. Host presiona "Terminar Sesión"
+
+**Resultado esperado:**
+- ✅ Video desaparece en cliente
+- ✅ Mensaje: "El host terminó la sesión"
+- ✅ Botón "Volver" para regresar a pantalla inicial
+
+---
+
+### Estimación de Esfuerzo
+
+| Tarea | Esfuerzo | Prioridad |
+|-------|----------|-----------|
+| Setup Flutter Web + Firebase Hosting | 2-3 horas | P0 |
+| Pantalla de ingreso de código | 3-4 horas | P0 |
+| WebRTC Client Service (conexión) | 6-8 horas | P0 |
+| Pantalla de visualización de stream | 4-5 horas | P0 |
+| Data channel para control táctil | 5-6 horas | P0 |
+| Host: Recibir y ejecutar taps remotos | 4-5 horas | P0 |
+| Manejo de errores y reconexión | 3-4 horas | P0 |
+| Testing end-to-end | 4-5 horas | P0 |
+| **TOTAL** | **31-40 horas** | **~1 semana** |
+
+---
+
+### Dependencias
+
+**Ya completado:**
+- ✅ Host (servidor) implementado y funcionando
+- ✅ Firebase Firestore configurado
+- ✅ Signaling con `offer` ya funciona
+
+**Pendiente:**
+- [ ] `AccessibilityService` en host debe soportar taps remotos
+- [ ] Firebase Hosting configurado para web app
+- [ ] Permisos de Firestore ajustados para permitir escritura de cliente
+
+---
+
+### Estatus
+
+- [x] Identificado como bloqueante para MVP (08 ene 2026)
+- [x] Especificación técnica completada
+- [x] Aprobado para desarrollo
+- [x] En desarrollo
+- [x] En testing (TC-CLIENT-001 a TC-CLIENT-004)
+- [x] Listo para MVP
+
+---
+
+### FUNCIONALIDAD 2.2: BaseScreenLayout - Widget de Layout Consistente
+
+#### Fecha de planeación: 14 Enero 2026
+#### Prioridad: **Media (P1 - Mejora UX)**
+#### Estatus: Por iniciar
+
+---
+
+#### Contexto
+
+La app está orientada a adultos mayores que necesitan una experiencia **predecible y consistente** en todas las pantallas. Actualmente, cada pantalla tiene su propia estructura, lo que puede generar confusión sobre dónde están los botones principales.
+
+**Problema identificado:**
+- Botones principales (CTAs) en diferentes ubicaciones entre pantallas
+- Contenido sin scroll cuando crece (problemas en dispositivos pequeños)
+- Falta de consistencia dificulta aprendizaje para adultos mayores
+
+**Solución:**
+Crear un widget base reutilizable (`BaseScreenLayout`) que estandarice el layout con:
+- ✅ Contenido scrollable (adapta a cualquier tamaño de pantalla)
+- ✅ Footer sticky con botones principales (siempre en la misma posición)
+- ✅ Soporte para múltiples botones en footer
+- ✅ Semántica completa para TalkBack
+
+---
+
+#### Historia de Usuario
+
+```
+Como adulto mayor con baja visión
+Quiero que todos los botones principales estén siempre en el mismo lugar en cada pantalla
+Para poder predecir dónde están y usarlos sin confusión
+```
+
+---
+
+#### Criterios de Aceptación Funcional
+
+**Layout Estándar:**
+- [ ] Todas las pantallas usan el mismo widget base
+- [ ] Contenido es scrollable automáticamente si excede el tamaño de pantalla
+- [ ] Footer con botones principales siempre visible (sticky)
+- [ ] Footer soporta 1-3 botones (ej: secundario + principal)
+- [ ] AppBar con título y botón "Atrás" opcional
+- [ ] Espaciado consistente en todas las pantallas (24dp padding)
+
+**Accesibilidad:**
+- [ ] Semántica completa para TalkBack
+- [ ] Botones en footer tienen mínimo 80dp altura
+- [ ] Footer se anuncia como región landmark
+- [ ] Navegación con TalkBack es predecible
+
+**Aplicación Inmediata:**
+- [ ] `RemoteControlHostScreen` refactorizado para usar `BaseScreenLayout`
+- [ ] Botón "Terminar Sesión" siempre visible en footer
+- [ ] Código de sesión + instrucciones scrollable
+
+---
+
+#### Criterios de Aceptación Técnico
+
+**Archivo nuevo:**
+- [ ] `lib/widgets/base_screen_layout.dart` creado
+
+**API del Widget:**
+```dart
+BaseScreenLayout(
+  title: 'Control Remoto',           // Título del AppBar
+  showBackButton: true,               // Mostrar botón "Atrás" (opcional)
+  content: [                          // Lista de widgets scrollable
+    ConnectionStatusIndicator(...),
+    SessionCodeDisplay(...),
+    // ... más widgets
+  ],
+  footerActions: [                    // 1-3 botones en footer sticky
+    AccessibleButton(
+      label: 'Terminar Sesión',
+      icon: Icons.stop,
+      onPressed: () => ...,
+      isDestructive: true,
+    ),
+  ],
+)
+```
+
+**Estructura Interna:**
+```dart
+Scaffold(
+  appBar: AppBar(
+    title: Text(title),
+    leading: showBackButton ? BackButton() : null,
+  ),
+  body: SafeArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.all(24.0),
+      child: Column(
+        children: content,
+      ),
+    ),
+  ),
+  persistentFooterButtons: footerActions,  // Sticky footer
+)
+```
+
+**Características Técnicas:**
+- [ ] Usa `Scaffold` + `persistentFooterButtons` para footer sticky
+- [ ] Usa `SingleChildScrollView` para contenido scrollable
+- [ ] `SafeArea` automático para evitar notches/bordes
+- [ ] Padding consistente: 24dp en contenido, 16dp entre elementos del footer
+- [ ] Semántica con `ExcludeSemantics` en decoraciones visuales
+- [ ] Footer con `Semantics(label: 'Acciones principales', container: true)`
+
+---
+
+#### Aplicaciones por Pantalla
+
+| Pantalla | Footer Actions | Content | Prioridad |
+|----------|----------------|---------|-----------|
+| **RemoteControlHostScreen** | "Terminar Sesión" | Status + Código + Instrucciones | P0 (Inmediato) |
+| **WhatsAppScreen** | "Enviar" o "Volver" | Lista de contactos o chat | P1 (Futuro) |
+| **VoiceCommandScreen** | "Detener" o "Cancelar" | Comandos + Feedback | P1 (Futuro) |
+| **SettingsScreen** | "Guardar Cambios" | Opciones de configuración | P1 (Futuro) |
+
+---
+
+#### Diseño Visual
+
+```
+┌─────────────────────────────────────┐
+│  ← Título de Pantalla            ⚙ │  ← AppBar (opcional back button)
+├─────────────────────────────────────┤
+│                                     │
+│  [Contenido Scrollable]             │  ← SingleChildScrollView
+│  • ConnectionStatusIndicator        │
+│  • SessionCodeDisplay               │
+│  • Instrucciones                    │
+│  • Tarjetas informativas            │
+│  • ...                              │
+│  ↕ (scroll si crece)                │
+│                                     │
+├─────────────────────────────────────┤
+│  ┌───────────────────────────────┐ │  ← Footer Sticky
+│  │  [Btn Secundario] [Btn CTA]  │ │     (persistentFooterButtons)
+│  └───────────────────────────────┘ │
+└─────────────────────────────────────┘
+```
+
+---
+
+#### Edge Cases y Manejo de Errores
+
+**¿Qué pasa si el contenido es muy corto?**
+- El footer permanece en la parte inferior (no flota en el medio)
+- `SingleChildScrollView` con `Column` natural mantiene el footer abajo
+
+**¿Qué pasa si hay 3+ botones en footer?**
+- Advertir en documentación: máximo 3 botones recomendado
+- Si se excede, los botones se envuelven (wrap) automáticamente
+
+**¿Qué pasa en dispositivos muy pequeños?**
+- Contenido siempre scrollable (no overflow)
+- Footer se mantiene visible y accesible
+- Botones mantienen tamaño mínimo (no se reducen)
+
+**¿Qué pasa si no hay footerActions?**
+- Footer no se muestra (comportamiento de `persistentFooterButtons`)
+- Widget funciona como `Scaffold` normal
+
+---
+
+#### Refactorización de RemoteControlHostScreen
+
+**Antes:**
+```dart
+Scaffold(
+  appBar: AppBar(...),
+  body: SafeArea(
+    child: SingleChildScrollView(
+      padding: EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          ConnectionStatusIndicator(...),
+          SessionCodeDisplay(...),
+          // ... más contenido
+          _buildActionButtons(provider),  // Botones dentro del scroll
+        ],
+      ),
+    ),
+  ),
+)
+```
+
+**Después:**
+```dart
+BaseScreenLayout(
+  title: 'Control Remoto',
+  content: [
+    ConnectionStatusIndicator(status: provider.status),
+    SizedBox(height: 32),
+    if (provider.sessionCode != null) ...[
+      SessionCodeDisplay(sessionCode: provider.sessionCode!),
+      // ... más contenido
+    ],
+  ],
+  footerActions: [
+    AccessibleButton(
+      label: 'Terminar Sesión',
+      icon: Icons.stop,
+      onPressed: () => _endSession(provider),
+      isDestructive: true,
+    ),
+  ],
+)
+```
+
+---
+
+#### Estimación de Esfuerzo
+
+| Tarea | Esfuerzo | Prioridad |
+|-------|----------|-----------|
+| Diseñar API del widget | 1 hora | P0 |
+| Implementar `BaseScreenLayout` | 3-4 horas | P0 |
+| Refactorizar `RemoteControlHostScreen` | 2-3 horas | P0 |
+| Documentar uso en CLAUDE.md | 1 hora | P0 |
+| Testing con TalkBack | 2 horas | P0 |
+| **TOTAL** | **9-11 horas** | **~1-1.5 días** |
+
+---
+
+#### Dependencias
+
+**Ya completado:**
+- ✅ `AccessibleButton` widget existente
+- ✅ `RemoteControlHostScreen` estructura actual
+
+**Requerido:**
+- [ ] Ninguna dependencia externa nueva
+
+---
+
+#### Testing
+
+**Casos de prueba:**
+- [ ] TC-BASE-001: Contenido largo scrollable sin overflow
+- [ ] TC-BASE-002: Footer sticky visible al hacer scroll
+- [ ] TC-BASE-003: Múltiples botones en footer (1, 2, 3 botones)
+- [ ] TC-BASE-004: Navegación con TalkBack predecible
+- [ ] TC-BASE-005: Botón "Atrás" funciona correctamente
+- [ ] TC-BASE-006: Layout responsive en diferentes tamaños de pantalla
+
+---
+
+#### Documentación
+
+**Agregar a CLAUDE.md:**
+```markdown
+### BaseScreenLayout - Widget Base para Pantallas
+
+Widget estándar para crear pantallas consistentes en toda la app.
+
+**Uso:**
+```dart
+BaseScreenLayout(
+  title: 'Título de Pantalla',
+  showBackButton: true,
+  content: [
+    // Lista de widgets scrollable
+  ],
+  footerActions: [
+    // 1-3 botones sticky
+  ],
+)
+```
+
+**Características:**
+- Contenido automáticamente scrollable
+- Footer sticky con botones principales
+- Semántica completa para TalkBack
+- Espaciado consistente (24dp)
+```
+
+---
+
+#### Impacto en el Proyecto
+
+**Beneficios:**
+- ✅ **Consistencia:** Experiencia predecible para adultos mayores
+- ✅ **Accesibilidad:** Footer siempre en misma posición para TalkBack
+- ✅ **Escalabilidad:** Fácil crear nuevas pantallas
+- ✅ **Mantenibilidad:** Cambios de diseño en un solo lugar
+- ✅ **Responsive:** Funciona en cualquier tamaño de pantalla
+
+**Pantallas afectadas:**
+- RemoteControlHostScreen (refactorización inmediata)
+- Futuras pantallas: WhatsApp, Voice Commands, Settings
+
+---
+
+#### Estatus
+
+- [x] Especificación completada (14 ene 2026)
+- [x] Aprobado para desarrollo
+- [x] En desarrollo
+- [x] En testing
+- [x] Listo para producción
+- [x] Documentado en CLAUDE.md
+
+---
+
+## MEJORAS POST-MVP (Funcionalidad 2.3 - Enhancements)
+
+### Prioridad: P1-P2 (Alta, pero no bloqueante para MVP)
+
+---
+
+### MEJORA 2.2.1: Botón para Repetir Código de Sesión en Altavoz
+
+#### Historia de Usuario
+```
+Como adulto mayor usando la app
+Quiero poder repetir el código de sesión en altavoz cuando lo necesite
+Para poder compartirlo con mi familiar sin tener que leerlo visualmente en la pantalla
+```
+
+#### Contexto
+Durante las pruebas del TC-HP-004, se identificó que aunque el código se anuncia automáticamente al inicio, sería útil poder repetirlo bajo demanda, especialmente en casos donde:
+- El usuario no escuchó el código la primera vez
+- El familiar llegó tarde y no estaba presente cuando se anunció
+- El usuario necesita confirmar el código nuevamente
+
+#### Criterios de Aceptación Funcional
+- [ ] Existe un botón "Repetir código" visible en la pantalla de sesión activa
+- [ ] El botón tiene un ícono de altavoz/volumen para identificación rápida
+- [ ] Al presionar el botón, el TTS anuncia: "Código de sesión: X, X, X, X, X, X" (cada dígito separado)
+- [ ] El botón tiene tamaño mínimo de 80dp de altura (estándar de accesibilidad)
+- [ ] El botón funciona con TalkBack activado
+- [ ] Semantic label: "Repetir código de sesión en altavoz, Botón, Toca dos veces para escuchar el código nuevamente"
+
+#### Criterios de Aceptación Técnico
+- [ ] Botón implementado usando `AccessibleButton` widget existente
+- [ ] Usa `ElevenLabsService.speak()` para reproducir el código
+- [ ] El mensaje del TTS es el mismo que el anuncio inicial (consistencia)
+- [ ] El botón se deshabilita temporalmente mientras reproduce el audio (evita spam)
+- [ ] Se agrega a `RemoteControlHostScreen` debajo del widget `SessionCodeDisplay`
+
+#### UI/UX
+**Ubicación:** Entre el `SessionCodeDisplay` y las instrucciones "Comparte este código..."
+
+**Diseño:**
+```
+┌─────────────────────────────────────┐
+│   SessionCodeDisplay (código)       │
+└─────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────┐
+│  🔊 Repetir código en altavoz       │  ← NUEVO BOTÓN
+└─────────────────────────────────────┘
+           ↓
+┌─────────────────────────────────────┐
+│   Card: "Comparte este código..."   │
+└─────────────────────────────────────┘
+```
+
+#### Edge Cases y Manejo de Errores
+- ¿Qué pasa si el usuario presiona el botón mientras ya está reproduciendo?
+  - Botón se deshabilita visualmente y no hace nada
+  - TalkBack anuncia: "Esperando que termine el audio actual"
+- ¿Qué pasa si ElevenLabs falla?
+  - Botón sigue funcionando, pero no reproduce audio (fallo silencioso)
+  - Se loggea el error en consola
+  - NO se muestra error al usuario (no es crítico)
+- ¿Qué pasa si el usuario tiene el volumen multimedia en 0?
+  - Se reproduce de todas formas (responsabilidad del usuario ajustar volumen)
+  - Considerar agregar indicador visual de "reproduciendo..." para feedback
+
+#### Estimación de Esfuerzo
+- **Desarrollo:** 2-3 horas
+- **Testing:** 1 hora (TC-ACC-006 y casos nuevos)
+- **Total:** 3-4 horas
+
+#### Dependencias
+- ✅ ElevenLabsService ya implementado y funcionando
+- ✅ AccessibleButton widget existente
+- ✅ RemoteControlHostScreen estructura ya definida
+
+#### Estatus
+- [x] Identificado durante testing (TC-HP-004)
+- [x] Diseñado (especificación completa)
+- [x] En desarrollo
+- [x] En pruebas
+- [x] Listo para producción
+
+---
+
+### Otras Mejoras Planeadas para 2.1
+
+#### MEJORA 2.1.2: Ajuste de Volumen de TTS (Prioridad: P2)
+- Agregar slider de volumen específico para TTS en settings
+- Permitir probar el volumen con audio de ejemplo
+
+#### MEJORA 2.1.3: Selección de Voz (Prioridad: P2)
+- Permitir elegir entre voz masculina/femenina
+- Agregar opción de velocidad de habla (lenta/normal/rápida)
+
+#### MEJORA 2.1.4: Historial de Sesiones (Prioridad: P3)
+- Mostrar últimas 5 sesiones remotas con fecha/hora
+- Útil para auditoría y confianza del usuario
+
+---
+
 ## REGISTRO DE CAMBIOS
 
 | Fecha | Versión | Cambios |
 |-------|---------|---------|
+| 11 ene 2026 | 1.2 | Agregada FUNCIONALIDAD 7: Configuración de Release para Producción. Renumeradas funcionalidades post-MVP (8-11) |
+| 08 ene 2026 | 1.1 | Agregada sección "Mejoras Post-MVP" con mejora 2.1.1 (Repetir código en altavoz) |
 | 24 dic 2025 | 1.0 | Backlog inicial creado basado en ROADMAP v1.1 y ARQUITECTURA v2.0 |
 
 ---

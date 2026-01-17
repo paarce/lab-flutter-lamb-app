@@ -1,86 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
-import 'providers/remote_control_provider.dart';
-import 'screens/home_screen.dart';
+import 'providers/remote_viewer_provider.dart';
+import 'screens/client_connect_screen.dart';
 import 'services/firebase_signaling_service.dart';
-import 'services/error_handler_service.dart';
-import 'services/logger_service.dart';
-import 'services/tts/tts_factory.dart';
 
-/// Entry point de la aplicación
-/// Inicializa Firebase, Hive y Provider antes de ejecutar la app
+/// Entry point para el cliente web
+/// Versión simplificada del main.dart para uso en navegador
 void main() async {
   // Asegurar que los bindings estén inicializados antes de usar plugins
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Inicializar Firebase
-    await Firebase.initializeApp();
-    debugPrint('[Firebase] Inicializado correctamente');
+    // Inicializar Firebase (usa la configuración de web/firebase-config.js)
+    await Firebase.initializeApp(options: const FirebaseOptions(
+      apiKey: 'AIzaSyAjBcvvyq2PZfrvvbSfDV9GVNcavGuOVlY',
+      appId: '1:384054654746:web:58e8f8fd1da6d621175ea3',
+      messagingSenderId: '384054654746',
+      authDomain: "lamb-dev-36c91.firebaseapp.com",
+      storageBucket: "lamb-dev-36c91.firebasestorage.app",
+      projectId: 'lamb-dev-36c91',
+    ));
+    debugPrint('[Firebase Web] Inicializado correctamente');
   } catch (e) {
-    debugPrint('[Firebase] Error al inicializar: $e');
-    debugPrint('[Firebase] La app continuará, pero funciones de Firebase no estarán disponibles');
-    // NOTA: En producción, considera mostrar un error al usuario
+    debugPrint('[Firebase Web] Error al inicializar: $e');
+    debugPrint('[Firebase Web] La app continuará, pero funciones de Firebase no estarán disponibles');
   }
 
-  try {
-    // Inicializar Hive (base de datos local)
-    await Hive.initFlutter();
-    debugPrint('[Hive] Inicializado correctamente');
-  } catch (e) {
-    debugPrint('[Hive] Error al inicializar: $e');
-  }
-
-  // Ejecutar la app
-  runApp(const MyApp());
+  // Ejecutar la app web
+  runApp(const WebClientApp());
 }
 
-/// Widget raíz de la aplicación
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// Widget raíz de la aplicación web
+class WebClientApp extends StatelessWidget {
+  const WebClientApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Logging service (Singleton)
-        Provider<LoggerService>(
-          create: (_) => LoggerService(),
-        ),
-
         // Initialize services
         Provider<FirebaseSignalingService>(
           create: (_) => FirebaseSignalingService(),
         ),
-        // TTS Service (Singleton) - Inyectar para acceso desde Providers/Screens
-        Provider(
-          create: (_) => TTSFactory.getInstance(),
-        ),
 
-        // Error handler service (Singleton)
-        Provider<ErrorHandlerService>(
-          create: (_) => ErrorHandlerService(),
-        ),
-
-        // Initialize providers with dependencies
-        ChangeNotifierProvider<RemoteControlProvider>(
-          create: (context) => RemoteControlProvider(
+        // Initialize viewer provider with dependencies
+        ChangeNotifierProvider<RemoteViewerProvider>(
+          create: (context) => RemoteViewerProvider(
             signalingService: context.read<FirebaseSignalingService>(),
           ),
         ),
       ],
       child: MaterialApp(
-        title: 'Asistente de Accesibilidad',
+        title: 'Control Remoto - Cliente Web',
         debugShowCheckedModeBanner: false,
 
         // Tema principal con configuración de accesibilidad
         theme: _buildAccessibleTheme(),
 
-        // Pantalla inicial
-        home: const HomeScreen(),
+        // Pantalla inicial: Conectar con código
+        home: const ClientConnectScreen(),
 
         // Builder para MediaQuery (necesario para accesibilidad)
         builder: (context, child) {
@@ -105,7 +85,7 @@ class MyApp extends StatelessWidget {
   /// Características:
   /// - Tamaños de texto grandes (mínimo 24sp base)
   /// - Alto contraste de colores
-  /// - Áreas táctiles grandes (mínimo 80dp botones)
+  /// - Áreas táctiles grandes (mínimo 60dp botones en web)
   /// - Iconografía clara
   ThemeData _buildAccessibleTheme() {
     // Colores con alto contraste
@@ -151,8 +131,8 @@ class MyApp extends StatelessWidget {
       // Configuración de botones elevados (ElevatedButton)
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          minimumSize: const Size(200, 80), // MÍNIMO 80dp altura
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          minimumSize: const Size(200, 60), // 60dp altura para web
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
           textStyle: const TextStyle(
             fontSize: 24, // MÍNIMO 24sp
             fontWeight: FontWeight.w600,
@@ -166,20 +146,12 @@ class MyApp extends StatelessWidget {
       // Configuración de botones de texto (TextButton)
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          minimumSize: const Size(150, 80),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          minimumSize: const Size(150, 60),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           textStyle: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w600,
           ),
-        ),
-      ),
-
-      // Configuración de botones con ícono (IconButton)
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          minimumSize: const Size(80, 80), // Área táctil grande
-          iconSize: 40, // Íconos grandes
         ),
       ),
 
@@ -229,12 +201,6 @@ class MyApp extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-      ),
-
-      // Espaciado generoso en listas
-      listTileTheme: const ListTileThemeData(
-        contentPadding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        minVerticalPadding: 16,
       ),
     );
   }

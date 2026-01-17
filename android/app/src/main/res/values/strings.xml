@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App name -->
+    <string name="app_name">Lamb</string>
+
+    <!-- Accessibility Service Description -->
+    <string name="accessibility_service_description">
+        Este servicio permite a la aplicación simular toques en la pantalla
+        para ayudar a personas con baja visión a recibir soporte remoto de familiares.\n\n
+        La aplicación puede:\n
+        • Simular toques en la pantalla durante sesiones remotas\n
+        • Permitir control remoto temporal\n\n
+        NO recopila ni envía ningún dato. Todas las acciones son locales y
+        solicitadas por el usuario.
+    </string>
+</resources>

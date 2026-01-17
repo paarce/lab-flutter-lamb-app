@@ -102,8 +102,8 @@ firebase-debug.log*
 firestore-debug.log*
 ui-debug.log*
 .firebase/
-firebase.json
 .firebaserc
+# Note: firebase.json IS committed (shared hosting configuration)
 
 # Claude Code settings (local overrides only)
 .claude/settings.local.json

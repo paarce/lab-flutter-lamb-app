@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.accessibilityapp.lamb"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35  // Compatible con flutter_webrtc 0.9.48
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -26,8 +26,10 @@ android {
         // Android 7.0 Nougat (API 24) - Versión mínima requerida
         minSdk = 24
 
-        // Android 14 (API 34) - Versión objetivo
-        targetSdk = 34
+        // Android 13 (API 33) - Versión objetivo (downgrade temporal para MVP)
+        // Android 14+ requiere foreground service complejo para MediaProjection
+        // Para producción, usar targetSdk 34 con ScreenCaptureService
+        targetSdk = 33
 
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -38,8 +40,8 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
+            // Production signing config will be added as part of FUNCIONALIDAD 7 (Release Configuration)
             signingConfig = signingConfigs.debug
         }
     }
