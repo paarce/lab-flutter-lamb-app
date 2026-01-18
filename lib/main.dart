@@ -4,11 +4,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'providers/remote_control_provider.dart';
+import 'providers/voice_command_provider.dart';
 import 'screens/home_screen.dart';
+import 'services/elevenlabs_service.dart';
 import 'services/firebase_signaling_service.dart';
 import 'services/error_handler_service.dart';
 import 'services/logger_service.dart';
 import 'services/tts/tts_factory.dart';
+import 'services/tts/tts_service.dart';
 
 /// Entry point de la aplicación
 /// Inicializa Firebase, Hive y Provider antes de ejecutar la app
@@ -55,8 +58,14 @@ class MyApp extends StatelessWidget {
         Provider<FirebaseSignalingService>(
           create: (_) => FirebaseSignalingService(),
         ),
+
+        // STT Service (Speech-to-Text) - ElevenLabs
+        Provider<ElevenLabsService>(
+          create: (_) => ElevenLabsService(),
+        ),
+
         // TTS Service (Singleton) - Inyectar para acceso desde Providers/Screens
-        Provider(
+        Provider<TTSService>(
           create: (_) => TTSFactory.getInstance(),
         ),
 
@@ -69,6 +78,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<RemoteControlProvider>(
           create: (context) => RemoteControlProvider(
             signalingService: context.read<FirebaseSignalingService>(),
+          ),
+        ),
+
+        // Voice command provider
+        ChangeNotifierProvider<VoiceCommandProvider>(
+          create: (context) => VoiceCommandProvider(
+            sttService: context.read<ElevenLabsService>(),
+            ttsService: context.read<TTSService>(),
           ),
         ),
       ],

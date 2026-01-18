@@ -24,6 +24,8 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val CHANNEL = "com.accessibilityapp/foreground_service"
+        private const val WHATSAPP_CHANNEL = "com.accessibilityapp/whatsapp"
+        private const val WHATSAPP_PACKAGE = "com.whatsapp"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -151,6 +153,58 @@ class MainActivity : FlutterActivity() {
                             "Failed to open accessibility settings: ${e.message}",
                             e.stackTraceToString()
                         )
+                    }
+                }
+
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+
+        // Setup MethodChannel for WhatsApp automation
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            WHATSAPP_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "openWhatsApp" -> {
+                    try {
+                        Log.d(TAG, "Opening WhatsApp")
+                        val intent = packageManager.getLaunchIntentForPackage(WHATSAPP_PACKAGE)
+
+                        if (intent != null) {
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                            Log.d(TAG, "WhatsApp opened successfully")
+                            result.success(null)
+                        } else {
+                            Log.e(TAG, "WhatsApp not installed")
+                            result.error(
+                                "NOT_FOUND",
+                                "WhatsApp is not installed on this device",
+                                null
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to open WhatsApp", e)
+                        result.error(
+                            "WHATSAPP_OPEN_FAILED",
+                            "Failed to open WhatsApp: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
+                "isWhatsAppInstalled" -> {
+                    try {
+                        val intent = packageManager.getLaunchIntentForPackage(WHATSAPP_PACKAGE)
+                        val isInstalled = intent != null
+                        Log.d(TAG, "WhatsApp installed: $isInstalled")
+                        result.success(isInstalled)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error checking WhatsApp installation", e)
+                        result.success(false)
                     }
                 }
 

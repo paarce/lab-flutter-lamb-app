@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 
 import 'remote_control_host_screen.dart';
+import 'voice_command_screen.dart';
 
 /// Pantalla principal de la aplicación
 ///
@@ -51,14 +52,19 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 48),
 
-              // Botón: Comandos de Voz (funcionalidad futura)
+              // Botón: Comandos de Voz
               Semantics(
                 label: 'Comandos de voz',
                 hint: 'Toca dos veces para usar comandos de voz',
                 button: true,
-                enabled: false, // Deshabilitado por ahora
                 child: ElevatedButton.icon(
-                  onPressed: null, // null = deshabilitado
+                  onPressed: () {
+                    developer.log('User pressed voice commands', name: 'HomeScreen');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const VoiceCommandScreen()),
+                    );
+                  },
                   icon: const Icon(Icons.mic, size: 32),
                   label: const Text('Comandos de Voz'),
                 ),

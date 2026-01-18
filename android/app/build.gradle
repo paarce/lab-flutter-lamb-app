@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.accessibilityapp.lamb"
-    compileSdk = 35  // Compatible con flutter_webrtc 0.9.48
+    compileSdk = 36  // Requerido por flutter_tts 4.2.0
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
