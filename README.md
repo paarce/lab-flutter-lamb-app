@@ -26,15 +26,29 @@ flutter pub get
 
 ### 2. Configurar Secrets
 
+**IMPORTANTE:** El archivo `secrets.dart` contiene credenciales y NO debe ser commiteado.
+
 ```bash
-# Editar lib/config/secrets.dart con tus API keys
-# - ElevenLabs API Key (para STT/TTS)
-# - ElevenLabs Voice ID
+# 1. Crear secrets.dart desde el template
+cd lib/config
+cp secrets.example.dart secrets.dart
+
+# 2. Editar secrets.dart con tus credenciales reales
+nano secrets.dart
+# O usar tu editor preferido: code secrets.dart, vim secrets.dart, etc.
 ```
+
+**Credenciales necesarias:**
+- **ElevenLabs:** API Key (para Speech-to-Text)
+- **Firebase:** Web API Key, App IDs (web y Android), Project ID, Messaging Sender ID, Auth Domain, Storage Bucket
+
+**Obtener credenciales:**
+- ElevenLabs: [https://elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys)
+- Firebase: Console → Project Settings → General → Your apps
 
 ### 3. Firebase
 
-✅ **Ya configurado** - El archivo `google-services.json` está en su lugar.
+✅ **Configuración centralizada** - Las credenciales se gestionan desde `lib/config/secrets.dart` (gitignored).
 
 ### 4. Ejecutar la App
 

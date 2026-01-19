@@ -16,8 +16,31 @@ class Secrets {
   /// Obtener en: https://elevenlabs.io/app/settings/api-keys
   static const String elevenLabsApiKey = 'YOUR_ELEVENLABS_API_KEY_HERE';
 
-  /// Firebase Project ID (opcional si usas FlutterFire CLI)
+  // ========================================
+  // Firebase Configuration
+  // ========================================
+  /// Obtener en: Firebase Console → Project Settings → General
+
+  /// Firebase Web API Key
+  static const String firebaseWebApiKey = 'YOUR_FIREBASE_WEB_API_KEY';
+
+  /// Firebase Web App ID
+  static const String firebaseWebAppId = 'YOUR_FIREBASE_WEB_APP_ID';
+
+  /// Firebase Android App ID
+  static const String firebaseAndroidAppId = 'YOUR_FIREBASE_ANDROID_APP_ID';
+
+  /// Firebase Project ID
   static const String firebaseProjectId = 'YOUR_FIREBASE_PROJECT_ID';
+
+  /// Firebase Messaging Sender ID
+  static const String firebaseMessagingSenderId = 'YOUR_MESSAGING_SENDER_ID';
+
+  /// Firebase Auth Domain
+  static const String firebaseAuthDomain = 'YOUR_PROJECT_ID.firebaseapp.com';
+
+  /// Firebase Storage Bucket
+  static const String firebaseStorageBucket = 'YOUR_PROJECT_ID.firebasestorage.app';
 
   /// Otros secrets que necesites
   // static const String otherApiKey = 'VALUE';

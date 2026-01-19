@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'firebase_options.dart';
 import 'providers/remote_viewer_provider.dart';
 import 'screens/client_connect_screen.dart';
 import 'services/firebase_signaling_service.dart';
@@ -13,15 +14,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Inicializar Firebase (usa la configuración de web/firebase-config.js)
-    await Firebase.initializeApp(options: const FirebaseOptions(
-      apiKey: 'AIzaSyAjBcvvyq2PZfrvvbSfDV9GVNcavGuOVlY',
-      appId: '1:384054654746:web:58e8f8fd1da6d621175ea3',
-      messagingSenderId: '384054654746',
-      authDomain: "lamb-dev-36c91.firebaseapp.com",
-      storageBucket: "lamb-dev-36c91.firebasestorage.app",
-      projectId: 'lamb-dev-36c91',
-    ));
+    // Inicializar Firebase usando configuración centralizada desde secrets
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.web,
+    );
     debugPrint('[Firebase Web] Inicializado correctamente');
   } catch (e) {
     debugPrint('[Firebase Web] Error al inicializar: $e');

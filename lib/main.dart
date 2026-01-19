@@ -7,6 +7,7 @@ import 'providers/remote_control_provider.dart';
 import 'providers/voice_command_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/elevenlabs_service.dart';
+import 'firebase_options.dart';
 import 'services/firebase_signaling_service.dart';
 import 'services/error_handler_service.dart';
 import 'services/logger_service.dart';
@@ -20,8 +21,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Inicializar Firebase
-    await Firebase.initializeApp();
+    // Inicializar Firebase usando configuración desde secrets
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     debugPrint('[Firebase] Inicializado correctamente');
   } catch (e) {
     debugPrint('[Firebase] Error al inicializar: $e');
