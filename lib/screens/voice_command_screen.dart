@@ -291,39 +291,106 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   ) {
     final buttons = <Widget>[];
 
-    if (isListening) {
-      // Cuando está escuchando: botones Detener y Cancelar
-      buttons.add(
-        AccessibleButton(
-          label: 'Detener',
-          icon: Icons.stop,
-          onPressed: isProcessing ? null : () => provider.stopListening(),
-          semanticHint: 'Toca dos veces para detener el reconocimiento de voz',
-        ),
-      );
-
-      buttons.add(
-        AccessibleButton(
-          label: 'Cancelar',
-          icon: Icons.close,
-          onPressed: isProcessing ? null : () => provider.cancelListening(),
-          isDestructive: true,
-          semanticHint: 'Toca dos veces para cancelar el comando de voz',
-        ),
-      );
-    } else {
-      // Cuando está idle o error: botón Iniciar
-      buttons.add(
-        AccessibleButton(
-          label: 'Iniciar Comandos de Voz',
-          icon: Icons.mic,
-          onPressed: isProcessing ? null : () => provider.startListening(),
-          semanticHint:
-              'Toca dos veces para iniciar el reconocimiento de comandos de voz',
-        ),
-      );
-    }
+    // Botón principal: Mantén presionado para hablar
+    buttons.add(
+      _buildPressAndHoldButton(
+        context,
+        provider,
+        isListening,
+        isProcessing,
+      ),
+    );
 
     return buttons;
+  }
+
+  /// Construye el botón de press-and-hold (mantener presionado)
+  Widget _buildPressAndHoldButton(
+    BuildContext context,
+    VoiceCommandProvider provider,
+    bool isListening,
+    bool isProcessing,
+  ) {
+    final buttonColor = isListening
+        ? Colors.red
+        : isProcessing
+            ? Colors.orange
+            : Theme.of(context).colorScheme.primary;
+
+    final buttonText = isListening
+        ? 'Suelta para detener'
+        : isProcessing
+            ? 'Procesando...'
+            : 'Mantén presionado para hablar';
+
+    final icon = isListening
+        ? Icons.mic
+        : isProcessing
+            ? Icons.hourglass_bottom
+            : Icons.mic_none;
+
+    return Semantics(
+      button: true,
+      label: buttonText,
+      hint: 'Mantén presionado para grabar tu comando de voz',
+      enabled: !isProcessing,
+      child: GestureDetector(
+        onLongPressStart: isProcessing
+            ? null
+            : (_) {
+                print('[DEBUG VoiceCommandScreen] 🖐️ Botón presionado, iniciando grabación');
+                provider.startListening();
+              },
+        onLongPressEnd: isProcessing
+            ? null
+            : (_) {
+                print('[DEBUG VoiceCommandScreen] 🖐️ Botón soltado, deteniendo grabación');
+                provider.stopListening();
+              },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          height: 100,
+          decoration: BoxDecoration(
+            color: buttonColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isListening
+                ? [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [],
+          ),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 40,
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 16),
+                Flexible(
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

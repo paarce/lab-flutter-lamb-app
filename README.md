@@ -378,6 +378,286 @@ adb emu kill
 
 ---
 
+## 📱 Ejecutar en Dispositivo Físico Android
+
+### Requisitos del Dispositivo
+
+- **Android 7.0 (API 24) o superior** - Versión mínima requerida
+- Cable USB con **transferencia de datos** (no solo carga)
+- Conexión estable entre dispositivo y computadora
+
+### Paso 1: Habilitar Modo Desarrollador en el Dispositivo
+
+El modo desarrollador permite la depuración USB, necesaria para ejecutar la app desde Flutter.
+
+**Activar Opciones de Desarrollador:**
+
+1. Abre **Configuración** (Settings) en tu dispositivo Android
+2. Ve a **Acerca del teléfono** (About phone)
+3. Busca **Número de compilación** (Build number)
+4. **Toca 7 veces** sobre "Número de compilación"
+5. Verás un mensaje: "Ahora eres un desarrollador" o similar
+
+**Ubicación en diferentes marcas:**
+- **Samsung:** Settings → About phone → Software information → Build number
+- **Xiaomi:** Settings → About phone → MIUI version (tocar 7 veces)
+- **Google Pixel:** Settings → About phone → Build number
+- **Huawei:** Settings → About phone → Build number
+
+### Paso 2: Habilitar Depuración USB
+
+Una vez activado el modo desarrollador:
+
+1. Regresa a **Configuración** (Settings)
+2. Busca **Opciones de desarrollador** (Developer options)
+   - Puede estar en: Settings → System → Advanced → Developer options
+   - O directamente en: Settings → Developer options
+3. Activa el switch de **Opciones de desarrollador** (si está desactivado)
+4. Busca **Depuración USB** (USB debugging)
+5. **Activa** el switch de Depuración USB
+6. Aparecerá un diálogo de confirmación → Toca **Aceptar** o **OK**
+
+### Paso 3: Conectar el Dispositivo a la Computadora
+
+1. **Conecta el dispositivo** a tu Mac/PC usando un cable USB
+2. **En el dispositivo:** Aparecerá una notificación sobre el modo USB
+   - Toca la notificación
+   - Selecciona **Transferencia de archivos** o **PTP** (NO "Solo carga")
+3. **Autorizar la computadora:**
+   - Aparecerá un diálogo: "¿Permitir depuración USB?"
+   - Marca "**Permitir siempre desde este equipo**"
+   - Toca **Aceptar**
+
+### Paso 4: Verificar Detección del Dispositivo
+
+**Verificar a nivel de sistema (macOS):**
+
+```bash
+# Ver dispositivos USB conectados
+system_profiler SPUSBDataType | grep -i android
+```
+
+**Verificar con ADB:**
+
+```bash
+# Ver dispositivos Android detectados
+adb devices
+```
+
+**Salida esperada:**
+```
+List of devices attached
+F3NKCY004517    device
+```
+
+Si aparece `unauthorized` en lugar de `device`, repite el Paso 3 (autorizar computadora).
+
+**Si `adb` no se encuentra:**
+
+```bash
+# Instalar Android platform tools (macOS)
+brew install android-platform-tools
+
+# Verificar instalación
+adb --version
+```
+
+**Verificar con Flutter:**
+
+```bash
+# Ver todos los dispositivos detectados por Flutter
+flutter devices
+```
+
+**Salida esperada:**
+```
+2 connected devices:
+
+K013 (mobile) • F3NKCY004517 • android-arm64 • Android 9 (API 28)
+Chrome (web)  • chrome       • web-javascript • Google Chrome 120.0.6099.109
+```
+
+### Paso 5: Ejecutar la App en el Dispositivo
+
+Una vez que el dispositivo aparece en `flutter devices`:
+
+```bash
+# Ejecutar en el dispositivo conectado
+flutter run
+
+# Si tienes múltiples dispositivos, especifica el ID
+flutter run -d F3NKCY004517
+
+# Con análisis de accesibilidad (recomendado)
+flutter run --analyze-accessibility
+```
+
+**Salida esperada:**
+```
+Launching lib/main.dart on K013 in debug mode...
+Running Gradle task 'assembleDebug'...
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+Installing build/app/outputs/flutter-apk/app-debug.apk...
+Waiting for K013 to report its views...
+Debug service listening on ws://127.0.0.1:xxxxx
+Synced 0.0MB
+
+🔥 App corriendo en el dispositivo
+```
+
+### Paso 6: Usar la App en el Dispositivo
+
+Una vez que la app esté ejecutándose:
+
+1. **Interactuar con la app:**
+   - Usa el dispositivo normalmente
+   - Los botones tienen áreas táctiles grandes (80dp) para accesibilidad
+
+2. **Hot Reload (recarga en caliente):**
+   - Haz cambios en el código
+   - Presiona `r` en la terminal para recargar
+   - O presiona `R` para reiniciar completamente
+
+3. **Ver logs en tiempo real:**
+   ```bash
+   # En otra terminal
+   flutter logs
+   ```
+
+4. **Probar TalkBack (lector de pantalla):**
+   - Settings → Accessibility → TalkBack → Activar
+   - Verifica que todos los elementos se anuncian correctamente
+
+### Paso 7: Detener la App
+
+```bash
+# Presiona 'q' en la terminal donde está corriendo flutter run
+# O usa Ctrl+C
+```
+
+### 🔧 Troubleshooting - Dispositivo Físico
+
+#### El dispositivo no aparece en `adb devices`
+
+**Solución 1: Reiniciar servidor ADB**
+```bash
+adb kill-server
+adb start-server
+adb devices
+```
+
+**Solución 2: Verificar cable USB**
+- Usa un cable **con transferencia de datos** (no solo carga)
+- Prueba otro cable o puerto USB
+
+**Solución 3: Verificar modo USB**
+- Cambia el modo USB en el dispositivo a "Transferencia de archivos" o "PTP"
+
+**Solución 4: Revocar autorizaciones USB**
+- En el dispositivo: Developer options → Revoke USB debugging authorizations
+- Desconecta y vuelve a conectar el dispositivo
+- Vuelve a autorizar la computadora
+
+#### El dispositivo aparece como `unauthorized`
+
+```bash
+# En el dispositivo:
+# 1. Ve a Developer options → Revoke USB debugging authorizations
+# 2. Desconecta el cable USB
+# 3. Vuelve a conectar el cable
+# 4. Aparecerá el diálogo "¿Permitir depuración USB?" nuevamente
+# 5. Marca "Permitir siempre" y toca Aceptar
+
+# Verificar nuevamente
+adb devices
+```
+
+#### Error: `INSTALL_FAILED_OLDER_SDK`
+
+Este error significa que tu dispositivo tiene una versión de Android **anterior a 7.0** (API 24).
+
+```bash
+# Verificar versión de Android del dispositivo
+adb shell getprop ro.build.version.sdk
+```
+
+**Solución:**
+- Usa un dispositivo con **Android 7.0 o superior**
+- O usa un emulador con API 24+
+
+#### El dispositivo se desconecta durante la ejecución
+
+**Causas comunes:**
+- **Ahorro de energía:** Desactiva "Optimización de batería" para la depuración USB
+- **Cable defectuoso:** Usa un cable de mejor calidad
+- **Puerto USB inestable:** Prueba otro puerto USB en tu computadora
+
+**Solución:**
+```bash
+# En el dispositivo:
+# Settings → Battery → Battery optimization → All apps
+# Busca "USB debugging" o tu app → Don't optimize
+```
+
+#### La app se instala pero no se abre
+
+```bash
+# Verificar que la app se instaló
+adb shell pm list packages | grep lamb
+
+# Forzar apertura de la app
+adb shell am start -n com.accessibilityapp.lamb/.MainActivity
+
+# Ver logs para errores
+adb logcat | grep flutter
+```
+
+### 📱 Dispositivos Recomendados para Testing
+
+| Característica | Recomendación |
+|----------------|---------------|
+| **Android Version** | 7.0+ (API 24+) |
+| **RAM** | 2GB+ |
+| **Almacenamiento** | 16GB+ |
+| **Pantalla** | 5.5" o más grande (para accesibilidad) |
+
+**Dispositivos comunes compatibles (2017+):**
+- Samsung Galaxy S7 o superior
+- Google Pixel (cualquier generación)
+- Xiaomi Redmi Note 5 o superior
+- Motorola Moto G5 o superior
+
+### 💡 Tips para Testing en Dispositivo Físico
+
+**Ventajas vs Emulador:**
+- ✅ Performance real del hardware
+- ✅ Testing de TalkBack/accesibilidad más preciso
+- ✅ Prueba de gestos táctiles reales
+- ✅ Testing de sensores (cámara, micrófono para STT)
+
+**Durante el desarrollo:**
+```bash
+# 1. Conecta el dispositivo
+adb devices
+
+# 2. Ejecuta la app
+flutter run -d <device-id>
+
+# 3. Observa los logs
+flutter logs
+
+# 4. Haz cambios en el código y presiona 'r' para hot reload
+```
+
+**Atajos de teclado en la terminal de Flutter:**
+- `r` - Hot reload (recarga cambios de UI)
+- `R` - Hot restart (reinicia la app completamente)
+- `h` - Mostrar ayuda
+- `q` - Salir
+- `s` - Captura de pantalla
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```
