@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
@@ -54,14 +55,16 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
     return Consumer<VoiceCommandProvider>(
       builder: (context, provider, child) {
         final isListening = provider.state == VoiceCommandState.listening;
+        final isWaiting = provider.state == VoiceCommandState.waitingTranscription;
         final isProcessing = provider.state == VoiceCommandState.processing;
         final hasError = provider.state == VoiceCommandState.error;
+        final isBusy = isListening || isWaiting || isProcessing;
 
         return BaseScreenLayout(
           title: 'Comandos de Voz',
           content: [
             // 1. Ícono de micrófono animado
-            _buildMicrophoneIcon(isListening, isProcessing),
+            _buildMicrophoneIcon(isListening, isWaiting, isProcessing),
 
             const SizedBox(height: 32),
 
@@ -74,42 +77,54 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
             if (provider.currentTranscript.isNotEmpty)
               _buildTranscript(provider.currentTranscript),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             // 4. Ayuda de comandos disponibles (cuando idle)
             if (provider.state == VoiceCommandState.idle)
               _buildCommandsHelp(),
+
+            // Espaciado para que el contenido no quede detrás del botón sticky
+            const SizedBox(height: 140),
           ],
-          footerActions: _buildFooterButtons(
-            context,
-            provider,
-            isListening,
-            isProcessing,
-          ),
+          footerActions: [
+            // Botón STICKY en footer (posición fija)
+            _buildCustomPressAndHoldButton(
+              context,
+              provider,
+              isListening,
+              isBusy,
+            ),
+          ],
         );
       },
     );
   }
 
   /// Construye el ícono de micrófono animado
-  Widget _buildMicrophoneIcon(bool isListening, bool isProcessing) {
+  Widget _buildMicrophoneIcon(bool isListening, bool isWaiting, bool isProcessing) {
     final iconColor = isListening
         ? Colors.red
-        : isProcessing
-            ? Colors.orange
-            : Colors.grey;
+        : isWaiting
+            ? Colors.blue
+            : isProcessing
+                ? Colors.orange
+                : Colors.grey;
 
     final backgroundColor = isListening
         ? Colors.red.withOpacity(0.2)
-        : isProcessing
-            ? Colors.orange.withOpacity(0.2)
-            : Colors.grey[100];
+        : isWaiting
+            ? Colors.blue.withOpacity(0.2)
+            : isProcessing
+                ? Colors.orange.withOpacity(0.2)
+                : Colors.grey[100];
 
     final icon = isListening
         ? Icons.mic
-        : isProcessing
-            ? Icons.hourglass_bottom
-            : Icons.mic_off;
+        : isWaiting
+            ? Icons.sync
+            : isProcessing
+                ? Icons.hourglass_bottom
+                : Icons.mic_off;
 
     return Center(
       child: AnimatedContainer(
@@ -120,16 +135,26 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
           shape: BoxShape.circle,
           color: backgroundColor,
         ),
-        child: Icon(
-          icon,
-          size: 80,
-          color: iconColor,
-          semanticLabel: isListening
-              ? 'Escuchando'
-              : isProcessing
-                  ? 'Procesando'
-                  : 'Micrófono apagado',
-        ),
+        child: isWaiting
+            ? RotationTransition(
+                turns: const AlwaysStoppedAnimation(0.5),
+                child: Icon(
+                  icon,
+                  size: 80,
+                  color: iconColor,
+                  semanticLabel: 'Esperando respuesta',
+                ),
+              )
+            : Icon(
+                icon,
+                size: 80,
+                color: iconColor,
+                semanticLabel: isListening
+                    ? 'Escuchando'
+                    : isProcessing
+                        ? 'Procesando'
+                        : 'Micrófono apagado',
+              ),
       ),
     );
   }
@@ -148,6 +173,9 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
         break;
       case VoiceCommandState.listening:
         stateText = 'Escuchando...';
+        break;
+      case VoiceCommandState.waitingTranscription:
+        stateText = 'Esperando respuesta...';
         break;
       case VoiceCommandState.processing:
         stateText = 'Procesando comando...';
@@ -282,50 +310,28 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
     );
   }
 
-  /// Construye los botones del footer
-  List<Widget> _buildFooterButtons(
+  /// Construye el botón custom de press-and-hold (USAR ESTE)
+  Widget _buildCustomPressAndHoldButton(
     BuildContext context,
     VoiceCommandProvider provider,
     bool isListening,
-    bool isProcessing,
-  ) {
-    final buttons = <Widget>[];
-
-    // Botón principal: Mantén presionado para hablar
-    buttons.add(
-      _buildPressAndHoldButton(
-        context,
-        provider,
-        isListening,
-        isProcessing,
-      ),
-    );
-
-    return buttons;
-  }
-
-  /// Construye el botón de press-and-hold (mantener presionado)
-  Widget _buildPressAndHoldButton(
-    BuildContext context,
-    VoiceCommandProvider provider,
-    bool isListening,
-    bool isProcessing,
+    bool isBusy,
   ) {
     final buttonColor = isListening
         ? Colors.red
-        : isProcessing
-            ? Colors.orange
+        : isBusy
+            ? Colors.grey
             : Theme.of(context).colorScheme.primary;
 
     final buttonText = isListening
         ? 'Suelta para detener'
-        : isProcessing
-            ? 'Procesando...'
+        : isBusy
+            ? 'Esperando...'
             : 'Mantén presionado para hablar';
 
     final icon = isListening
         ? Icons.mic
-        : isProcessing
+        : isBusy
             ? Icons.hourglass_bottom
             : Icons.mic_none;
 
@@ -333,24 +339,22 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
       button: true,
       label: buttonText,
       hint: 'Mantén presionado para grabar tu comando de voz',
-      enabled: !isProcessing,
-      child: GestureDetector(
-        onLongPressStart: isProcessing
-            ? null
-            : (_) {
-                print('[DEBUG VoiceCommandScreen] 🖐️ Botón presionado, iniciando grabación');
-                provider.startListening();
-              },
-        onLongPressEnd: isProcessing
-            ? null
-            : (_) {
-                print('[DEBUG VoiceCommandScreen] 🖐️ Botón soltado, deteniendo grabación');
-                provider.stopListening();
-              },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+      enabled: !isBusy || isListening,
+      child: Listener(
+        onPointerDown: (_) {
+          if (!isBusy) {
+            provider.startListening();
+          }
+        },
+        onPointerUp: (_) {
+          if (isListening) {
+            HapticFeedback.mediumImpact();
+            provider.stopListening();
+          }
+        },
+        child: Container(
           width: double.infinity,
-          height: 100,
+          height: 120,
           decoration: BoxDecoration(
             color: buttonColor,
             borderRadius: BorderRadius.circular(16),
@@ -370,7 +374,7 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
               children: [
                 Icon(
                   icon,
-                  size: 40,
+                  size: 48,
                   color: Colors.white,
                 ),
                 const SizedBox(width: 16),
@@ -393,4 +397,5 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
       ),
     );
   }
+
 }

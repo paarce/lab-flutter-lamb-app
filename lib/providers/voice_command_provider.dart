@@ -17,6 +17,9 @@ enum VoiceCommandState {
   /// Escuchando audio y transcribiendo
   listening,
 
+  /// Esperando transcripción final del servidor
+  waitingTranscription,
+
   /// Procesando comando reconocido
   processing,
 
@@ -82,20 +85,17 @@ class VoiceCommandProvider extends ChangeNotifier {
   /// - Escucha stream de transcripción
   /// - Anuncia "Escuchando" via TTS
   Future<void> startListening() async {
-    print('[DEBUG VoiceCommandProvider] 🎤 Iniciando escucha de comandos de voz');
+    developer.log('Starting voice recognition', name: 'VoiceCommandProvider');
 
     try {
       // Solicitar permiso de micrófono
-      print('[DEBUG VoiceCommandProvider] 🔐 Solicitando permiso de micrófono');
       final micPermission = await Permission.microphone.request();
 
       if (!micPermission.isGranted) {
-        print('[DEBUG VoiceCommandProvider] ❌ Permiso de micrófono denegado');
+        developer.log('Microphone permission denied', name: 'VoiceCommandProvider');
         _handleError('Permiso de micrófono requerido. Por favor, actívalo en Configuración.');
         return;
       }
-
-      print('[DEBUG VoiceCommandProvider] ✅ Permiso de micrófono otorgado');
 
       _setState(VoiceCommandState.listening);
       _currentTranscript = '';
@@ -103,23 +103,18 @@ class VoiceCommandProvider extends ChangeNotifier {
       notifyListeners();
 
       // Anunciar inicio con TTS
-      print('[DEBUG VoiceCommandProvider] 🔊 Reproduciendo TTS: "Escuchando"');
       await _ttsService.speak('Escuchando');
 
       // Iniciar timeout
       _startTimeout();
 
       // Escuchar transcripción en tiempo real
-      print('[DEBUG VoiceCommandProvider] 📡 Suscribiéndose al stream de STT');
       final stream = _sttService.startListening();
       _transcriptionSubscription = stream.listen(
         (transcript) {
-          if (transcript.isEmpty) {
-            print('[DEBUG VoiceCommandProvider] ⏭️ Transcripción vacía, ignorando');
-            return;
-          }
+          if (transcript.isEmpty) return;
 
-          print('[DEBUG VoiceCommandProvider] 📝 Transcripción recibida: "$transcript"');
+          developer.log('Transcript received: $transcript', name: 'VoiceCommandProvider');
 
           _currentTranscript = transcript;
           _resetTimeout(); // Reset timeout en cada palabra
@@ -154,35 +149,37 @@ class VoiceCommandProvider extends ChangeNotifier {
 
   /// Detiene el reconocimiento de voz
   Future<void> stopListening() async {
-    print('[DEBUG VoiceCommandProvider] 🛑 Deteniendo escucha...');
+    developer.log('Stopping listening', name: 'VoiceCommandProvider');
 
     _cancelTimeout();
+
+    // Cambiar INMEDIATAMENTE a estado de espera para feedback visual
+    _setState(VoiceCommandState.waitingTranscription);
 
     // Enviar commit ANTES de cerrar el stream
     await _sttService.stopListening();
 
     // Esperar 3 segundos para recibir transcripciones finales
     // ANTES de cancelar la suscripción
-    print('[DEBUG VoiceCommandProvider] ⏳ Esperando transcripciones finales (3s)...');
+    developer.log('Waiting for final transcriptions', name: 'VoiceCommandProvider');
     await Future.delayed(const Duration(seconds: 3));
 
     // AHORA sí cerrar el stream
-    print('[DEBUG VoiceCommandProvider] 🔚 Cerrando stream de transcripciones');
     await _transcriptionSubscription?.cancel();
     _transcriptionSubscription = null;
 
     // Si recibimos una transcripción, procesarla
-    if (_currentTranscript.isNotEmpty && _state != VoiceCommandState.processing) {
-      print('[DEBUG VoiceCommandProvider] ✅ Procesando transcripción final: "$_currentTranscript"');
+    if (_currentTranscript.isNotEmpty && _state == VoiceCommandState.waitingTranscription) {
+      developer.log('Processing transcript: $_currentTranscript', name: 'VoiceCommandProvider');
       await _processTranscript(_currentTranscript);
     } else if (_currentTranscript.isEmpty) {
-      print('[DEBUG VoiceCommandProvider] ⚠️ No se recibió ninguna transcripción');
+      developer.log('No transcription received', name: 'VoiceCommandProvider');
       _setState(VoiceCommandState.idle);
-    } else if (_state != VoiceCommandState.processing) {
+    } else if (_state == VoiceCommandState.waitingTranscription) {
       _setState(VoiceCommandState.idle);
     }
 
-    print('[DEBUG VoiceCommandProvider] ✅ Escucha detenida completamente');
+    developer.log('Listening stopped', name: 'VoiceCommandProvider');
   }
 
   /// Cancela el reconocimiento de voz y anuncia

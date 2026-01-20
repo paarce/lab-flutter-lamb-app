@@ -47,13 +47,12 @@ class ElevenLabsService {
     try {
       _isListening = true;
 
-      print('[DEBUG ElevenLabsService] Iniciando reconocimiento de voz con ElevenLabs Scribe');
+      developer.log('Starting ElevenLabs Scribe connection', name: 'ElevenLabsService');
 
       // Conectar a WebSocket de ElevenLabs con autenticación correcta
       // Según docs: https://elevenlabs.io/docs/api-reference/speech-to-text/v-1-speech-to-text-realtime
       // Autenticación: Header 'xi-api-key' (NO query param)
       final wsUrl = Uri.parse('$_baseUrl/realtime?language_code=es');
-      print('[DEBUG ElevenLabsService] Conectando a WebSocket: $wsUrl');
 
       // Usar IOWebSocketChannel para agregar header de autenticación
       final socket = await WebSocket.connect(
@@ -65,17 +64,18 @@ class ElevenLabsService {
 
       _channel = IOWebSocketChannel(socket);
 
-      print('[DEBUG ElevenLabsService] ✅ WebSocket conectado y autenticado exitosamente');
+      developer.log('WebSocket connected', name: 'ElevenLabsService');
 
       // Listener de errores del WebSocket
       socket.done.then((_) {
-        print('[DEBUG ElevenLabsService] ⚠️ WebSocket cerrado por el servidor');
+        developer.log('WebSocket closed by server', name: 'ElevenLabsService');
       }).catchError((error) {
-        print('[DEBUG ElevenLabsService] ❌❌❌ ERROR EN WEBSOCKET: $error');
+        developer.log(
+          'WebSocket error',
+          name: 'ElevenLabsService',
+          error: error,
+        );
       });
-
-      // Iniciar captura de audio del micrófono
-      print('[DEBUG ElevenLabsService] 🎤 Iniciando captura de audio del micrófono (16kHz)');
 
       try {
         _micStream = await MicStream.microphone(
@@ -84,15 +84,12 @@ class ElevenLabsService {
           audioFormat: AudioFormat.ENCODING_PCM_16BIT,
         );
 
-        print('[DEBUG ElevenLabsService] ✅ Micrófono iniciado exitosamente');
+        developer.log('Microphone started', name: 'ElevenLabsService');
 
         // Enviar chunks de audio al WebSocket
         _audioSubscription = _micStream!.listen(
           (Uint8List audioChunk) {
             if (_channel != null) {
-              // Verificar si el audio contiene datos (no es silencio absoluto)
-              final hasAudio = _hasAudioActivity(audioChunk);
-
               // Convertir a little-endian (requerido por ElevenLabs)
               // PCM 16-bit: cada 2 bytes = 1 sample
               final convertedAudio = _convertToLittleEndian(audioChunk);
@@ -111,23 +108,32 @@ class ElevenLabsService {
 
                 // ENVIAR al WebSocket
                 _channel!.sink.add(message);
-
-                final status = hasAudio ? '🔊 AUDIO' : '🔇 SILENCIO';
-                print('[DEBUG ElevenLabsService] 📤 Chunk enviado: $status | Base64: ${audioBase64.length} chars | JSON: ${message.length} chars');
               } catch (sendError) {
-                print('[DEBUG ElevenLabsService] ❌❌❌ ERROR AL ENVIAR CHUNK: $sendError');
+                developer.log(
+                  'Error sending audio chunk',
+                  name: 'ElevenLabsService',
+                  error: sendError,
+                );
               }
             }
           },
           onError: (error) {
-            print('[DEBUG ElevenLabsService] ❌ Error en stream de audio: $error');
+            developer.log(
+              'Audio stream error',
+              name: 'ElevenLabsService',
+              error: error,
+            );
           },
           onDone: () {
-            print('[DEBUG ElevenLabsService] 🎤 Stream de audio finalizado');
+            developer.log('Audio stream ended', name: 'ElevenLabsService');
           },
         );
       } catch (micError) {
-        print('[DEBUG ElevenLabsService] ❌ Error iniciando micrófono: $micError');
+        developer.log(
+          'Failed to start microphone',
+          name: 'ElevenLabsService',
+          error: micError,
+        );
         throw Exception('No se pudo iniciar el micrófono: $micError');
       }
 
@@ -135,34 +141,41 @@ class ElevenLabsService {
       yield* _channel!.stream.map<String>((dynamic message) {
         try {
           final data = json.decode(message as String);
-          final messageType = data['message_type'] ?? 'unknown';
-
-          print('[DEBUG ElevenLabsService] 📥 RECIBIDO: tipo=$messageType');
 
           // Verificar si hay errores
           if (data['error'] != null) {
-            print('[DEBUG ElevenLabsService] ❌❌❌ ERROR: ${data['error']}');
-            print('[DEBUG ElevenLabsService] ❌ Mensaje completo: $message');
+            developer.log(
+              'ElevenLabs error: ${data['error']}',
+              name: 'ElevenLabsService',
+            );
           }
 
           // ElevenLabs Scribe envía fragmentos bajo "transcript" o "text"
           final transcript = data['transcript'] ?? data['text'] ?? '';
 
           if (transcript.isNotEmpty) {
-            print('[DEBUG ElevenLabsService] ✅✅✅ TRANSCRIPCIÓN: "$transcript"');
+            developer.log('Transcription: "$transcript"', name: 'ElevenLabsService');
           }
 
           return transcript;
         } catch (e) {
-          print('[DEBUG ElevenLabsService] ❌ Error parseando: $e | Mensaje: $message');
+          developer.log(
+            'Error parsing message',
+            name: 'ElevenLabsService',
+            error: e,
+          );
           return '';
         }
       });
     } catch (e, stackTrace) {
       _isListening = false;
 
-      print('[DEBUG ElevenLabsService] ❌ Error iniciando reconocimiento de voz: $e');
-      print('[DEBUG ElevenLabsService] StackTrace: $stackTrace');
+      developer.log(
+        'Failed to start voice recognition',
+        name: 'ElevenLabsService',
+        error: e,
+        stackTrace: stackTrace,
+      );
 
       yield ''; // Emitir vacío para señalar error
     }
@@ -178,7 +191,7 @@ class ElevenLabsService {
       _audioSubscription = null;
       _micStream = null;
 
-      print('[DEBUG ElevenLabsService] 🎤 Micrófono detenido');
+      developer.log('Microphone stopped', name: 'ElevenLabsService');
 
       // Enviar mensaje de commit para obtener transcripción final
       if (_channel != null) {
@@ -192,22 +205,27 @@ class ElevenLabsService {
 
           final commitMessage = json.encode(commitMessageMap);
 
-          print('[DEBUG ElevenLabsService] 📤 COMMIT: $commitMessage');
-
           _channel!.sink.add(commitMessage);
+
+          developer.log('Commit sent, waiting for final transcription', name: 'ElevenLabsService');
 
           // ⚠️ NO CERRAR EL WEBSOCKET AQUÍ
           // El stream sigue escuchando y recibirá la transcripción
           // Se cerrará automáticamente cuando el provider cancele la suscripción
-          print('[DEBUG ElevenLabsService] ⏳ Commit enviado, stream sigue escuchando respuestas...');
         } catch (commitError) {
-          print('[DEBUG ElevenLabsService] ❌❌❌ ERROR AL ENVIAR COMMIT: $commitError');
+          developer.log(
+            'Error sending commit',
+            name: 'ElevenLabsService',
+            error: commitError,
+          );
         }
       }
-
-      print('[DEBUG ElevenLabsService] ✅ Micrófono detenido, esperando transcripciones finales...');
     } catch (e) {
-      print('[DEBUG ElevenLabsService] ❌ Error deteniendo reconocimiento: $e');
+      developer.log(
+        'Error stopping listening',
+        name: 'ElevenLabsService',
+        error: e,
+      );
     }
   }
 
@@ -245,11 +263,9 @@ class ElevenLabsService {
 
     if (length == input.length) {
       // Ya es par, usar directamente
-      print('[DEBUG ElevenLabsService] ✓ Audio ya en tamaño par: $length bytes');
       return input;
     } else {
       // Truncar último byte impar
-      print('[DEBUG ElevenLabsService] ⚠️ Truncando audio de ${input.length} → $length bytes (par)');
       return Uint8List.sublistView(input, 0, length);
     }
 
@@ -266,7 +282,7 @@ class ElevenLabsService {
 
   /// Limpia recursos
   Future<void> dispose() async {
-    print('[DEBUG ElevenLabsService] 🧹 Limpiando recursos...');
+    developer.log('Disposing resources', name: 'ElevenLabsService');
 
     // Detener audio
     await _audioSubscription?.cancel();
@@ -279,6 +295,6 @@ class ElevenLabsService {
 
     _isListening = false;
 
-    print('[DEBUG ElevenLabsService] ✅ Recursos limpiados');
+    developer.log('Resources disposed', name: 'ElevenLabsService');
   }
 }
