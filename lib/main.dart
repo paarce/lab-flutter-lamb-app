@@ -5,7 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'providers/remote_control_provider.dart';
 import 'providers/voice_command_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/voice_command_screen.dart';
 import 'services/elevenlabs_service.dart';
 import 'firebase_options.dart';
 import 'services/firebase_signaling_service.dart';
@@ -100,7 +100,7 @@ class MyApp extends StatelessWidget {
         theme: _buildAccessibleTheme(),
 
         // Pantalla inicial
-        home: const HomeScreen(),
+        home: const VoiceCommandScreen(),
 
         // Builder para MediaQuery (necesario para accesibilidad)
         builder: (context, child) {

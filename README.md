@@ -9,6 +9,26 @@ App Flutter para adultos mayores (60+) con baja visión. Proporciona control rem
 - **Interfaz accesible** - Botones grandes y alto contraste
 - **TalkBack optimizado** - Navegación completa con lector de pantalla
 
+## 📱 Pantallas Principales
+
+La app está diseñada para ser controlada principalmente por comandos de voz:
+
+1. **VoiceCommandScreen** (Pantalla inicial ✨)
+   - Reconocimiento de voz en tiempo real con ElevenLabs STT
+   - Press-and-hold para grabar comandos
+   - Navegación a todas las features por voz
+   - Feedback audible con TTS
+
+2. **RemoteControlHostScreen**
+   - Control remoto con WebRTC
+   - Compartir pantalla con familiar/cuidador
+   - Accesible mediante comando: "Solicitar ayuda"
+
+3. **HomeScreen** (Deprecated)
+   - Menú tradicional con botones
+   - Mantenido para uso futuro en flujos secundarios
+   - No accesible por defecto (solo comandos de voz)
+
 ## 📋 Requisitos
 
 - Flutter 3.19+ (Actual: 3.26.0)
@@ -165,8 +185,8 @@ flutter run -d emulator-5554
 # Con hot reload habilitado (por defecto)
 flutter run
 
-# Con análisis de accesibilidad
-flutter run --analyze-accessibility
+# Con hot reload (por defecto)
+flutter run
 ```
 
 **Salida esperada:**
@@ -487,9 +507,6 @@ flutter run
 
 # Si tienes múltiples dispositivos, especifica el ID
 flutter run -d F3NKCY004517
-
-# Con análisis de accesibilidad (recomendado)
-flutter run --analyze-accessibility
 ```
 
 **Salida esperada:**
@@ -662,17 +679,19 @@ flutter logs
 
 ```
 lib/
-├── main.dart                    # Entry point, Provider, tema accesible
+├── main.dart                         # Entry point, Provider, tema accesible
 ├── config/
-│   ├── secrets.dart             # API keys (gitignored)
-│   └── secrets.example.dart     # Template para secrets
+│   ├── secrets.dart                  # API keys (gitignored)
+│   └── secrets.example.dart          # Template para secrets
 ├── screens/
-│   └── home_screen.dart         # Pantalla principal
-├── widgets/                     # Componentes reutilizables
-├── services/                    # Lógica de negocio
-├── models/                      # Modelos de datos
-├── utils/                       # Utilidades y helpers
-└── providers/                   # State management
+│   ├── voice_command_screen.dart     # Pantalla principal (comandos de voz)
+│   ├── remote_control_host_screen.dart # Control remoto WebRTC
+│   └── home_screen.dart              # [Deprecated] Menú tradicional
+├── widgets/                          # Componentes reutilizables
+├── services/                         # Lógica de negocio
+├── models/                           # Modelos de datos
+├── utils/                            # Utilidades y helpers
+└── providers/                        # State management
 ```
 
 ## 🎨 Convenciones de Accesibilidad
@@ -695,11 +714,12 @@ flutter test
 # Limpiar build
 flutter clean
 
-# Verificar accesibilidad
-flutter run --analyze-accessibility
-
 # Ver logs
 flutter logs
+
+# Testing de accesibilidad
+# 1. Activar TalkBack en dispositivo: Settings → Accessibility → TalkBack
+# 2. Usar Android Accessibility Scanner (Google Play)
 ```
 
 ## 📦 Dependencias Principales
@@ -743,14 +763,16 @@ flutter logs
 - [x] Estructura de carpetas
 - [x] Configuración Firebase
 - [x] Tema accesible con WCAG AA
-- [x] Pantalla Home con Semantics
+- [x] VoiceCommandScreen con STT/TTS (pantalla principal)
+- [x] Control remoto con WebRTC
 - [x] Provider configurado
+- [x] Gestión centralizada de errores
 
 ### 🔜 Próximas Funcionalidades
 
-- [ ] Comandos de voz (ElevenLabs STT)
-- [ ] Automatización WhatsApp (AccessibilityService)
-- [ ] Control remoto (WebRTC)
+- [ ] Comandos de voz - Implementar navegación entre features
+- [ ] Automatización WhatsApp (AccessibilityService + Platform Channel)
+- [ ] Tutorial de onboarding para press-and-hold
 - [ ] Configuración de usuario
 
 ## 👨‍💻 Desarrollo
