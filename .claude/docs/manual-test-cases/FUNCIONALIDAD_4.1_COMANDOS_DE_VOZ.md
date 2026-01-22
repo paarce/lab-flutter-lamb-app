@@ -1,9 +1,9 @@
 # 📋 MANUAL TEST CASES - Funcionalidad 4.1: Voice Command Infrastructure (Core)
 
-**Versión:** 1.0.0
+**Versión:** 1.1.0
 **Funcionalidad:** Sistema de comandos de voz con ElevenLabs STT + flutter_tts
 **Plataforma:** Android 7.0+ (API 24+)
-**Total Test Cases:** 15 (10 P0 + 5 P1)
+**Total Test Cases:** 16 (12 P0 + 4 P1)
 
 ---
 
@@ -100,11 +100,11 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 | A. Permisos y Configuración | 2 | 2 | 0 | ~10 min |
 | B. Reconocimiento de Voz (STT) | 3 | 2 | 1 | ~15 min |
 | C. Parsing de Comandos | 4 | 3 | 1 | ~15 min |
-| D. Ejecución de Comandos | 3 | 1 | 2 | ~10 min |
+| D. Ejecución de Comandos | 3 | 3 | 0 | ~15 min |
 | E. Timeout y Cancelación | 2 | 1 | 1 | ~10 min |
 | F. Feedback TTS | 1 | 1 | 0 | ~5 min |
 | G. Accesibilidad (TalkBack) | 1 | 0 | 1 | ~10 min |
-| **TOTAL** | **16** | **10** | **6** | **~75 min** |
+| **TOTAL** | **16** | **12** | **4** | **~80 min** |
 
 ---
 
@@ -138,7 +138,6 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 - ✅ Ícono de micrófono cambia a encendido (rojo)
 - ✅ Fondo del ícono cambia a rojo semitransparente (animación de 300ms)
 - ✅ Texto cambia a "Escuchando..." (en tiempo real)
-- ✅ TTS anuncia: "Escuchando"
 - ✅ Botones en footer cambian a: "Detener" y "Cancelar" (rojo)
 - ✅ **En logs Flutter:**
   ```
@@ -309,9 +308,11 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
   ```
   [VoiceCommandProvider] Parsed command: CommandType.requestHelp
   [VoiceCommandProvider] Executing command: CommandType.requestHelp
+  [VoiceCommandProvider] Navigating to RemoteControlHostScreen
   ```
 - ✅ TTS anuncia: "Generando código de sesión para ayuda remota"
-- ✅ (Nota: En MVP actual, esto es un stub - solo anuncia, no ejecuta acción real)
+- ✅ App navega automáticamente a `RemoteControlHostScreen`
+- ✅ Se muestra pantalla de control remoto con código de sesión
 
 **Criterios de Aceptación:**
 - 3/3 variaciones reconocidas correctamente
@@ -411,48 +412,76 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 
 ---
 
-### ✅ TC-VOICE-010: Stub "solicitar ayuda" anuncia correctamente
+### ✅ TC-VOICE-010: Comando "solicitar ayuda" ejecuta navegación
 
-**Prioridad:** P1
-**Objetivo:** Verificar que el stub de "solicitar ayuda" funciona (TTS feedback)
+**Prioridad:** P0
+**Objetivo:** Verificar que el comando "solicitar ayuda" navega correctamente a RemoteControlHostScreen
 
 **Pasos:**
 1. Completar TC-VOICE-006 (reconocer "solicitar ayuda")
 2. Escuchar mensaje TTS
-3. Verificar logs
+3. Verificar navegación a RemoteControlHostScreen
+4. Verificar logs
 
 **Resultado Esperado:**
 - ✅ TTS anuncia claramente: "Generando código de sesión para ayuda remota"
 - ✅ Mensaje se escucha completo (no cortado)
+- ✅ App navega automáticamente a `RemoteControlHostScreen`
+- ✅ Se muestra código de sesión de 6 dígitos
+- ✅ Usuario puede volver con botón de back
 - ✅ **En logs:**
   ```
-  [VoiceCommandProvider] TODO: Navigate to RemoteControlHostScreen
+  [VoiceCommandProvider] Navigating to RemoteControlHostScreen
+  [RemoteControlProvider] Creating new session
   ```
-- ✅ (Nota: Navegación real pendiente para v1.1)
 
 **Criterios de Aceptación:**
 - TTS claro y comprensible
+- Navegación fluida (< 500ms)
+- Código de sesión se genera correctamente
 - Sin errors en logs
 
 ---
 
-### ✅ TC-VOICE-011: Stub "alto contraste" anuncia correctamente
+### ✅ TC-VOICE-011: Comando "alto contraste" cambia tema
 
-**Prioridad:** P1
-**Objetivo:** Verificar que el stub de cambio de tema funciona
+**Prioridad:** P0
+**Objetivo:** Verificar que el comando "alto contraste" cambia el tema correctamente
 
 **Pasos:**
 1. Completar TC-VOICE-001
-2. Hablar: "alto contraste"
-3. Escuchar mensaje TTS
+2. Observar colores actuales (azul/naranja estándar)
+3. Hablar: "alto contraste"
+4. Observar cambio de colores
+5. Hablar nuevamente: "alto contraste" (toggle)
+6. Verificar que vuelve a tema estándar
 
-**Resultado Esperado:**
-- ✅ TTS anuncia: "Cambiando contraste"
+**Resultado Esperado (primer toggle):**
+- ✅ TTS anuncia: "Cambiando a alto contraste"
+- ✅ Colores cambian inmediatamente:
+  - Botones: Negro sólido (antes azul)
+  - Acentos: Amarillo oro (antes naranja)
+  - Fondo: Blanco
+  - Contraste máximo visible
 - ✅ **En logs:**
   ```
-  [VoiceCommandProvider] TODO: Toggle theme via ThemeProvider
+  [VoiceCommandProvider] Theme toggled to: AppThemeMode.highContrast
   ```
-- ✅ (Nota: ThemeProvider pendiente para implementación en 4.2)
+
+**Resultado Esperado (segundo toggle):**
+- ✅ TTS anuncia: "Cambiando a contraste normal"
+- ✅ Colores vuelven a tema estándar (azul/naranja)
+- ✅ **En logs:**
+  ```
+  [VoiceCommandProvider] Theme toggled to: AppThemeMode.standard
+  ```
+
+**Criterios de Aceptación:**
+- Cambio de tema instantáneo (sin delay)
+- Todos los elementos de UI se actualizan (botones, textos, íconos)
+- Toggle funciona en ambas direcciones
+- TTS anuncia estado correcto
+- Sin errors en logs
 
 ---
 
@@ -557,32 +586,34 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 **Objetivo:** Verificar que TODAS las acciones tienen feedback audible via TTS
 
 **Pasos:**
-1. **Acción 1:** Iniciar listening (TC-VOICE-001)
-   - Verificar TTS: "Escuchando"
-2. **Acción 2:** Comando "solicitar ayuda"
+2. **Acción 1:** Comando "solicitar ayuda"
    - Verificar TTS: "Generando código de sesión para ayuda remota"
-3. **Acción 3:** Comando "abrir whatsapp"
+3. **Acción 2:** Comando "abrir whatsapp"
    - Verificar TTS: "Abriendo WhatsApp"
-4. **Acción 4:** Comando "alto contraste"
-   - Verificar TTS: "Cambiando contraste"
-5. **Acción 5:** Comando "cancelar"
+4. **Acción 3:** Comando "Cambiar contraste" (primera vez)
+   - Verificar TTS: "Cambiando a alto contraste"
+5. **Acción 3b:** Comando "alto contraste" (segunda vez - toggle)
+   - Verificar TTS: "Cambiando a contraste normal"
+6. **Acción 4:** Comando "cancelar"
    - Verificar TTS: "Cancelado"
-6. **Acción 6:** Comando desconocido
+7. **Acción 5:** Comando desconocido
    - Verificar TTS: "No entendí el comando. Intenta de nuevo."
-7. **Acción 7:** Timeout
+8. **Acción 6:** Timeout
    - Verificar TTS: "Tiempo agotado"
 
 **Resultado Esperado:**
-- ✅ 7/7 acciones tienen mensaje TTS correspondiente
+- ✅ 8/8 acciones tienen mensaje TTS correspondiente (incluyendo toggle de alto contraste)
 - ✅ Mensajes se escuchan claramente (volumen multimedia > 50%)
 - ✅ TTS usa motor nativo (flutter_tts)
 - ✅ Idioma: Español (configurado en `TTSConfig.language = 'es-ES'`)
 - ✅ Velocidad normal (pitch: 1.0, speed: 1.0)
+- ✅ Mensaje de "alto contraste" es dinámico según estado actual del tema
 
 **Criterios de Aceptación:**
 - 100% de acciones con feedback TTS
 - Audio claro y comprensible
 - Latencia TTS < 200ms
+- Mensajes dinámicos reflejan estado correcto
 
 ---
 
@@ -662,9 +693,9 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 
 | Comando | Variaciones | Test Case | Integrado |
 |---------|-------------|-----------|-----------|
-| **Solicitar ayuda** | "solicitar ayuda", "necesito ayuda", "ayúdame" | TC-VOICE-006 | ⏳ Stub (v1.1) |
-| **Abrir WhatsApp** | "abrir whatsapp", "abre whatsapp", "whatsapp" | TC-VOICE-007 | ⏳ Platform channel listo, integración pendiente |
-| **Alto contraste** | "alto contraste", "activar contraste", "contraste" | TC-VOICE-011 | ⏳ Stub (4.2) |
+| **Solicitar ayuda** | "solicitar ayuda", "necesito ayuda", "ayúdame" | TC-VOICE-006, TC-VOICE-010 | ✅ Completo - Navega a RemoteControlHostScreen |
+| **Abrir WhatsApp** | "abrir whatsapp", "abre whatsapp", "whatsapp" | TC-VOICE-007 | ⏳ Platform channel listo, integración pendiente (Feature 5) |
+| **Alto contraste** | "alto contraste", "activar contraste", "contraste" | TC-VOICE-011 | ✅ Completo - Toggle de tema dinámico |
 | **Cancelar** | "cancelar", "detener", "para" | TC-VOICE-008 | ✅ Completo |
 
 ### **Cobertura de Dispositivos**
@@ -681,13 +712,14 @@ Ejecutar TODOS los test cases en:
 - TC-VOICE-001, TC-VOICE-002 (Permisos)
 - TC-VOICE-003 (STT básico)
 - TC-VOICE-006, TC-VOICE-007, TC-VOICE-008 (Parsing core)
+- TC-VOICE-010, TC-VOICE-011 (Ejecución de comandos implementados)
 - TC-VOICE-013 (Timeout)
 - TC-VOICE-015 (Feedback TTS)
 
 **P1 (Importantes - Pueden ser hotfixed):**
 - TC-VOICE-004, TC-VOICE-005 (STT avanzado)
 - TC-VOICE-009 (Unknown commands)
-- TC-VOICE-010, TC-VOICE-011, TC-VOICE-012 (Stubs)
+- TC-VOICE-012 (Platform channel WhatsApp - pendiente integración)
 - TC-VOICE-014 (Timeout reset)
 - TC-VOICE-016 (TalkBack)
 
@@ -709,11 +741,11 @@ Para considerar la Funcionalidad 4.1 **PRODUCTION READY**:
 
 ### **Limitaciones Conocidas (MVP 4.1)**
 
-1. **Comandos son stubs:**
-   - "Solicitar ayuda" solo anuncia, no genera código
-   - "Alto contraste" no cambia tema real
-   - "Abrir WhatsApp" platform channel listo pero no integrado
-   - **Mejora:** Integrar en v1.1 (funcionalidades 4.2 y 4.3)
+1. **Comando "Abrir WhatsApp" pendiente:**
+   - Platform channel está implementado en Flutter + Kotlin
+   - NO integrado en `VoiceCommandProvider` (pendiente Feature 5)
+   - Solo anuncia "Abriendo WhatsApp" sin ejecutar acción
+   - **Mejora:** Integrar en Feature 5 (WhatsApp Integration) junto con comandos avanzados
 
 2. **Parser solo usa keywords locales:**
    - No hay fallback a LLM para comandos complejos
@@ -796,7 +828,7 @@ adb shell dumpsys package com.accessibilityapp.lamb | grep RECORD_AUDIO
 
 ---
 
-**Versión:** 1.0.0
-**Última actualización:** 18 ene 2026
-**Autor:** Claude (Funcionalidad 4.1 Implementation)
-**Stack:** Flutter + ElevenLabs STT + flutter_tts + Provider
+**Versión:** 1.1.0
+**Última actualización:** 22 ene 2026
+**Autor:** Claude (Funcionalidad 4.1 Implementation + TODOs completados)
+**Stack:** Flutter + ElevenLabs STT + flutter_tts + Provider + ThemeProvider

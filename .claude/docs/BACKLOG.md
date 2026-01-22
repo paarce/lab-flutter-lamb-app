@@ -274,10 +274,10 @@ Para interactuar con la aplicación sin necesidad de leer texto en pantalla
 - [ ] Fallback a Android SpeechRecognizer si ElevenLabs falla (4.1.1 - v1.1)
 - [x] Usuario puede cancelar con botón X en overlay o diciendo "cancelar"
 - [x] Timeout de 10 segundos con reset en cada palabra reconocida
-- [x] Comandos básicos reconocidos (implementados en 4.2 y 4.3):
-  - Sistema: "alto contraste", "subir volumen", "volver"
-  - Asistencia: "solicitar ayuda", "tutorial"
-  - WhatsApp: "abrir whatsapp", "abrir chat de [nombre]"
+- [x] Comandos básicos reconocidos e implementados:
+  - Sistema: "alto contraste" ✅ (toggle de tema dinámico)
+  - Asistencia: "solicitar ayuda" ✅ (navegación a RemoteControlHostScreen)
+  - WhatsApp: "abrir whatsapp" ⏳ (reconocido, integración pendiente Feature 5)
 
 #### Criterios de Aceptación Técnico
 - [x] Implementado con ElevenLabs Scribe v2 (WebSocket API) como STT principal

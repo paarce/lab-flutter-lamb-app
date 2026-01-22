@@ -34,7 +34,6 @@ class NLPParser {
     'detener',
     'para',
     'parar',
-    'alto',
     'cancela',
   ];
 

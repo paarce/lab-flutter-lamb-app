@@ -8,6 +8,7 @@ import '../services/error_handler_service.dart';
 import '../services/tts/tts_factory.dart';
 import '../widgets/accessible_button.dart';
 import '../widgets/base_screen_layout.dart';
+import 'remote_control_host_screen.dart';
 
 /// Pantalla de comandos de voz con reconocimiento en tiempo real
 ///
@@ -26,6 +27,8 @@ class VoiceCommandScreen extends StatefulWidget {
 }
 
 class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
+  bool _callbackConfigured = false;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +57,18 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   Widget build(BuildContext context) {
     return Consumer<VoiceCommandProvider>(
       builder: (context, provider, child) {
+        // Configurar callback de navegacion (solo una vez)
+        if (!_callbackConfigured) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            provider.setNavigationCallback((screen) {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => screen),
+              );
+            });
+          });
+          _callbackConfigured = true;
+        }
+
         final isListening = provider.state == VoiceCommandState.listening;
         final isWaiting = provider.state == VoiceCommandState.waitingTranscription;
         final isProcessing = provider.state == VoiceCommandState.processing;
@@ -63,19 +78,19 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
         return BaseScreenLayout(
           title: 'Comandos de Voz',
           content: [
-            // 1. Ícono de micrófono animado
-            _buildMicrophoneIcon(isListening, isWaiting, isProcessing),
-
-            const SizedBox(height: 32),
-
-            // 2. Estado actual (con liveRegion para TalkBack)
-            _buildStateText(provider.state, hasError, provider.errorMessage),
-
-            const SizedBox(height: 24),
-
-            // 3. Transcripción en vivo (si existe)
+            // 1. Transcripción en vivo (si existe)
             if (provider.currentTranscript.isNotEmpty)
               _buildTranscript(provider.currentTranscript),
+
+            const SizedBox(height: 16),
+
+            // 2. Ícono de micrófono animado
+            _buildMicrophoneIcon(isListening, isWaiting, isProcessing),
+
+            const SizedBox(height: 8),
+
+            // 3. Estado actual (con liveRegion para TalkBack)
+            _buildStateText(provider.state, hasError, provider.errorMessage),
 
             const SizedBox(height: 24),
 
@@ -205,13 +220,16 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   Widget _buildTranscript(String transcript) {
     return Semantics(
       liveRegion: true,
-      label: 'Reconociendo: $transcript',
+      label: 'Frase reconocida: $transcript',
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.blue[50],
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue[200]!),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,15 +239,16 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue[900],
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               transcript,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ],
@@ -245,8 +264,12 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            width: 2,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,13 +279,13 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[900],
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
             _buildCommandItem('Solicitar ayuda', 'Genera un código para ayuda remota'),
             _buildCommandItem('Abrir WhatsApp', 'Abre la aplicación WhatsApp'),
-            _buildCommandItem('Alto contraste', 'Cambia el tema de la aplicación'),
+            _buildCommandItem('Cambiar contraste', 'Cambia el tema de la aplicación'),
             _buildCommandItem('Cancelar', 'Detiene el reconocimiento de voz'),
           ],
         ),
@@ -280,7 +303,7 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
           Icon(
             Icons.arrow_forward,
             size: 24,
-            color: Colors.blue[700],
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -289,9 +312,10 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
               children: [
                 Text(
                   command,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -299,7 +323,10 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
                   description,
                   style: TextStyle(
                     fontSize: 18,
-                    color: Colors.grey[700],
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
                   ),
                 ),
               ],
@@ -323,6 +350,11 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
             ? Colors.grey
             : Theme.of(context).colorScheme.primary;
 
+    // Color del texto: blanco para rojo/gris, onPrimary para botón normal
+    final textColor = isListening || isBusy
+        ? Colors.white
+        : Theme.of(context).colorScheme.onPrimary;
+
     final buttonText = isListening
         ? 'Suelta para detener'
         : isBusy
@@ -338,11 +370,12 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
     return Semantics(
       button: true,
       label: buttonText,
-      hint: 'Mantén presionado para grabar tu comando de voz',
+      hint: 'Mantén presionado para grabar',
       enabled: !isBusy || isListening,
       child: Listener(
         onPointerDown: (_) {
           if (!isBusy) {
+            HapticFeedback.mediumImpact();
             provider.startListening();
           }
         },
@@ -375,16 +408,16 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
                 Icon(
                   icon,
                   size: 48,
-                  color: Colors.white,
+                  color: textColor,
                 ),
                 const SizedBox(width: 16),
                 Flexible(
                   child: Text(
                     buttonText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: textColor,
                     ),
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,

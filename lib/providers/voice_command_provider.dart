@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/command.dart';
+import '../screens/remote_control_host_screen.dart';
 import '../services/elevenlabs_service.dart';
 import '../services/tts/tts_service.dart';
 import '../utils/nlp_parser.dart';
+import 'theme_provider.dart';
 
 /// Estados del sistema de comandos de voz
 enum VoiceCommandState {
@@ -41,6 +44,10 @@ enum VoiceCommandState {
 class VoiceCommandProvider extends ChangeNotifier {
   final ElevenLabsService _sttService;
   final TTSService _ttsService;
+  final ThemeProvider _themeProvider;
+
+  /// Callback para navegacion (configurado por la screen)
+  void Function(Widget screen)? _navigationCallback;
 
   /// Estado actual del sistema de comandos
   VoiceCommandState _state = VoiceCommandState.idle;
@@ -74,8 +81,15 @@ class VoiceCommandProvider extends ChangeNotifier {
   VoiceCommandProvider({
     required ElevenLabsService sttService,
     required TTSService ttsService,
+    required ThemeProvider themeProvider,
   })  : _sttService = sttService,
-        _ttsService = ttsService;
+        _ttsService = ttsService,
+        _themeProvider = themeProvider;
+
+  /// Configura el callback de navegacion desde la screen
+  void setNavigationCallback(void Function(Widget screen) callback) {
+    _navigationCallback = callback;
+  }
 
   /// Inicia el reconocimiento de voz
   ///
@@ -83,7 +97,6 @@ class VoiceCommandProvider extends ChangeNotifier {
   /// - Cambia estado a listening
   /// - Inicia timeout de 10s
   /// - Escucha stream de transcripción
-  /// - Anuncia "Escuchando" via TTS
   Future<void> startListening() async {
     developer.log('Starting voice recognition', name: 'VoiceCommandProvider');
 
@@ -103,7 +116,6 @@ class VoiceCommandProvider extends ChangeNotifier {
       notifyListeners();
 
       // Anunciar inicio con TTS
-      await _ttsService.speak('Escuchando');
 
       // Iniciar timeout
       _startTimeout();
@@ -239,16 +251,27 @@ class VoiceCommandProvider extends ChangeNotifier {
     switch (command.type) {
       case CommandType.requestHelp:
         await _ttsService.speak('Generando código de sesión para ayuda remota');
-        // TODO: Navegar a RemoteControlHostScreen
-        developer.log(
-          'TODO: Navigate to RemoteControlHostScreen',
-          name: 'VoiceCommandProvider',
-        );
+
+        // Navegar a RemoteControlHostScreen usando callback
+        if (_navigationCallback != null) {
+          _navigationCallback!(const RemoteControlHostScreen());
+          developer.log(
+            'Navigating to RemoteControlHostScreen',
+            name: 'VoiceCommandProvider',
+          );
+        } else {
+          developer.log(
+            'Navigation callback not set',
+            name: 'VoiceCommandProvider',
+          );
+        }
         break;
 
       case CommandType.openWhatsApp:
         await _ttsService.speak('Abriendo WhatsApp');
         // TODO: Llamar platform channel
+        // Nota: Este TODO se implementará en Feature 5 (WhatsApp Integration)
+        // junto con comandos avanzados como "abrir chat de [nombre]"
         developer.log(
           'TODO: Call platform channel to open WhatsApp',
           name: 'VoiceCommandProvider',
@@ -256,10 +279,17 @@ class VoiceCommandProvider extends ChangeNotifier {
         break;
 
       case CommandType.toggleContrast:
-        await _ttsService.speak('Cambiando contraste');
-        // TODO: Cambiar tema via ThemeProvider
+        // Toggle del tema
+        _themeProvider.toggleContrast();
+
+        // Anunciar nuevo estado
+        final newMode = _themeProvider.isHighContrast
+            ? 'alto contraste'
+            : 'contraste normal';
+        await _ttsService.speak('Cambiando a $newMode');
+
         developer.log(
-          'TODO: Toggle theme via ThemeProvider',
+          'Theme toggled to: ${_themeProvider.currentMode}',
           name: 'VoiceCommandProvider',
         );
         break;
