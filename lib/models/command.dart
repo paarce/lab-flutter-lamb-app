@@ -24,6 +24,12 @@ enum CommandType {
   /// "volumen al X%" → Establece volumen TTS a porcentaje específico
   setVolumePercentage,
 
+  /// "tutorial" → Reproduce guía de uso de la app
+  playTutorial,
+
+  /// "comandos disponibles" → Lista comandos por TTS
+  listCommands,
+
   /// "cancelar" → Detiene listening
   cancel,
 

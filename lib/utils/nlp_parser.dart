@@ -91,6 +91,25 @@ class NLPParser {
     'quitar volumen',
   ];
 
+  static const _tutorialKeywords = [
+    'tutorial',
+    'guía',
+    'instrucciones',
+    'cómo usar',
+    'cómo funciona',
+    'explícame',
+    'enséñame',
+  ];
+
+  static const _listCommandsKeywords = [
+    'qué puedo decir',
+    'comandos disponibles',
+    'qué comandos hay',
+    'lista de comandos',
+    'qué puedo hacer',
+    'comandos',
+  ];
+
   /// Parsea texto reconocido por STT y retorna el comando identificado
   ///
   /// [recognizedText] Texto transcrito por el servicio de STT
@@ -154,7 +173,23 @@ class NLPParser {
       );
     }
 
-    // Prioridad 4: Ayuda
+    // Prioridad 4: Tutorial
+    if (_matchesAny(normalized, _tutorialKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.playTutorial,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 5: Listar comandos
+    if (_matchesAny(normalized, _listCommandsKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listCommands,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 6: Ayuda
     if (_matchesAny(normalized, _helpKeywords)) {
       return VoiceCommand.now(
         type: CommandType.requestHelp,
@@ -162,7 +197,7 @@ class NLPParser {
       );
     }
 
-    // Prioridad 5: WhatsApp
+    // Prioridad 7: WhatsApp
     if (_matchesAny(normalized, _whatsappKeywords)) {
       return VoiceCommand.now(
         type: CommandType.openWhatsApp,
@@ -170,7 +205,7 @@ class NLPParser {
       );
     }
 
-    // Prioridad 6: Comando no reconocido
+    // Prioridad 8: Comando no reconocido
     return VoiceCommand.now(
       type: CommandType.unknown,
       originalText: recognizedText,

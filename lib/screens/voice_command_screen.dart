@@ -291,6 +291,8 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
             _buildCommandItem('Volumen al máximo', 'Establece el volumen al 100%'),
             _buildCommandItem('Silencio', 'Establece el volumen al 0%'),
             _buildCommandItem('Volumen al 50%', 'Establece un porcentaje específico'),
+            _buildCommandItem('Tutorial', 'Escucha una guía de uso de la app'),
+            _buildCommandItem('Comandos disponibles', 'Lista todos los comandos por voz'),
             _buildCommandItem('Cancelar', 'Detiene el reconocimiento de voz'),
           ],
         ),

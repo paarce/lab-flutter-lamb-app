@@ -351,6 +351,22 @@ class VoiceCommandProvider extends ChangeNotifier {
         }
         break;
 
+      case CommandType.playTutorial:
+        await _playTutorial();
+        developer.log(
+          'Playing tutorial',
+          name: 'VoiceCommandProvider',
+        );
+        break;
+
+      case CommandType.listCommands:
+        await _listAvailableCommands();
+        developer.log(
+          'Listing available commands',
+          name: 'VoiceCommandProvider',
+        );
+        break;
+
       case CommandType.cancel:
         await _ttsService.speak('Cancelado');
         break;
@@ -363,6 +379,58 @@ class VoiceCommandProvider extends ChangeNotifier {
         );
         break;
     }
+  }
+
+  /// Reproduce el tutorial de uso de la app
+  Future<void> _playTutorial() async {
+    const tutorial = '''
+Bienvenido al tutorial de la aplicación.
+
+Esta app te ayuda a comunicarte con tu familia y recibir asistencia remota.
+
+Los comandos principales son:
+
+Primero: Di "solicitar ayuda" para que un familiar se conecte a tu pantalla.
+
+Segundo: Di "abrir WhatsApp" para abrir la aplicación de mensajes.
+
+Tercero: Di "alto contraste" para cambiar los colores de la pantalla.
+
+Cuarto: Di "subir volumen" o "bajar volumen" para ajustar el sonido.
+
+Quinto: Di "comandos disponibles" para escuchar esta lista nuevamente.
+
+Para cancelar, di "cancelar" en cualquier momento.
+
+Fin del tutorial.
+''';
+
+    await _ttsService.speak(tutorial);
+  }
+
+  /// Lista los comandos disponibles por TTS
+  Future<void> _listAvailableCommands() async {
+    const commands = '''
+Los comandos disponibles son:
+
+Solicitar ayuda: Genera un código para que tu familiar se conecte.
+
+Abrir WhatsApp: Abre la aplicación de mensajes.
+
+Alto contraste: Cambia el tema de colores.
+
+Subir volumen o bajar volumen: Ajusta el sonido.
+
+Volumen al máximo o silencio: Establece el volumen.
+
+Volumen al cincuenta por ciento: Establece un nivel específico.
+
+Tutorial: Escucha una guía sobre cómo usar la app.
+
+Cancelar: Detiene el reconocimiento de voz.
+''';
+
+    await _ttsService.speak(commands);
   }
 
   /// Inicia el timer de timeout (10 segundos)
