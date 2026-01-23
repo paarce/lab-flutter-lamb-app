@@ -9,6 +9,21 @@ enum CommandType {
   /// "alto contraste" → Cambia tema
   toggleContrast,
 
+  /// "subir volumen" → Incrementa volumen TTS
+  adjustVolumeUp,
+
+  /// "bajar volumen" → Decrementa volumen TTS
+  adjustVolumeDown,
+
+  /// "volumen al máximo" → Establece volumen TTS a 100%
+  setVolumeMax,
+
+  /// "volumen al mínimo" / "silencio" → Establece volumen TTS a 0%
+  setVolumeMin,
+
+  /// "volumen al X%" → Establece volumen TTS a porcentaje específico
+  setVolumePercentage,
+
   /// "cancelar" → Detiene listening
   cancel,
 

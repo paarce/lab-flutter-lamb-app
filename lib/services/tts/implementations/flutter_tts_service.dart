@@ -4,19 +4,20 @@ import '../tts_service.dart';
 import '../tts_config.dart';
 
 /// Implementación de TTSService usando flutter_tts (motor nativo Android/iOS)
-/// 
+///
 /// Características:
 /// - Gratis y totalmente offline
 /// - Bajo latencia (50-200ms)
 /// - Voces sintetizadas de calidad aceptable
 /// - Soporta español y múltiples idiomas
-/// 
+///
 /// Parámetros específicos (no configurables desde fuera):
 /// - Motor: Usar motor TTS nativo del sistema Android/iOS
 /// - Voces disponibles: Las del sistema operativo
 class FlutterTtsService extends TTSService {
   late FlutterTts _flutterTts;
   bool _isInitialized = false;
+  double _currentVolume = TTSConfig.volume;
 
   /// Constructor por defecto
   FlutterTtsService() {
@@ -103,5 +104,33 @@ class FlutterTtsService extends TTSService {
     } catch (e) {
       debugPrint('Error en resume TTS: $e');
     }
+  }
+
+  @override
+  double get volume => _currentVolume;
+
+  @override
+  Future<void> setVolume(double volume) async {
+    if (!_isInitialized) {
+      await _initialize();
+    }
+
+    try {
+      _currentVolume = volume.clamp(0.0, 1.0);
+      await _flutterTts.setVolume(_currentVolume);
+      debugPrint('TTS volume set to: $_currentVolume');
+    } catch (e) {
+      debugPrint('Error setting TTS volume: $e');
+    }
+  }
+
+  @override
+  Future<void> increaseVolume({double step = 0.1}) async {
+    await setVolume(_currentVolume + step);
+  }
+
+  @override
+  Future<void> decreaseVolume({double step = 0.1}) async {
+    await setVolume(_currentVolume - step);
   }
 }

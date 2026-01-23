@@ -294,6 +294,63 @@ class VoiceCommandProvider extends ChangeNotifier {
         );
         break;
 
+      case CommandType.adjustVolumeUp:
+        await _ttsService.increaseVolume();
+        final percentageUp = (_ttsService.volume * 100).round();
+        await _ttsService.speak('Volumen al $percentageUp por ciento');
+        developer.log(
+          'Volume increased to: ${_ttsService.volume}',
+          name: 'VoiceCommandProvider',
+        );
+        break;
+
+      case CommandType.adjustVolumeDown:
+        await _ttsService.decreaseVolume();
+        final percentageDown = (_ttsService.volume * 100).round();
+        await _ttsService.speak('Volumen al $percentageDown por ciento');
+        developer.log(
+          'Volume decreased to: ${_ttsService.volume}',
+          name: 'VoiceCommandProvider',
+        );
+        break;
+
+      case CommandType.setVolumeMax:
+        await _ttsService.setVolume(1.0);
+        await _ttsService.speak('Volumen al máximo');
+        developer.log(
+          'Volume set to maximum: 1.0',
+          name: 'VoiceCommandProvider',
+        );
+        break;
+
+      case CommandType.setVolumeMin:
+        await _ttsService.setVolume(0.0);
+        await _ttsService.speak('Volumen en silencio');
+        developer.log(
+          'Volume set to minimum: 0.0',
+          name: 'VoiceCommandProvider',
+        );
+        break;
+
+      case CommandType.setVolumePercentage:
+        final percentage = command.parameters?['percentage'] as int?;
+        if (percentage != null) {
+          final volume = percentage / 100.0;
+          await _ttsService.setVolume(volume);
+          await _ttsService.speak('Volumen al $percentage por ciento');
+          developer.log(
+            'Volume set to percentage: $percentage% ($volume)',
+            name: 'VoiceCommandProvider',
+          );
+        } else {
+          developer.log(
+            'ERROR: setVolumePercentage without percentage parameter',
+            name: 'VoiceCommandProvider',
+          );
+          await _ttsService.speak('Error al ajustar el volumen');
+        }
+        break;
+
       case CommandType.cancel:
         await _ttsService.speak('Cancelado');
         break;
