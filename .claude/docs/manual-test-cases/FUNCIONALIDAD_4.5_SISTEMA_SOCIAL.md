@@ -313,9 +313,9 @@
 
 ---
 
-## Test Cases - LLM Fallback
+## Test Cases - LLM Fallback (Feature 4.5 Específicos)
 
-### TC-LLM-001: LLM Reconoce Nuevos Comandos
+### TC-45-LLM-001: LLM Reconoce Nuevos Comandos de Sistema
 
 **Objetivo:** Verificar que el LLM reconoce comandos de sistema en lenguaje natural.
 
@@ -340,7 +340,7 @@
 
 ---
 
-### TC-LLM-002: LLM Rechaza Conversaciones
+### TC-45-LLM-002: LLM Rechaza Conversaciones
 
 **Objetivo:** Verificar que el LLM también rechaza intentos de conversación.
 
@@ -362,7 +362,7 @@
 
 ## Test Cases - System Prompt Externalizado
 
-### TC-PROMPT-001: Prompt Carga Correctamente
+### TC-45-PROMPT-001: Prompt Carga Correctamente
 
 **Objetivo:** Verificar que el system prompt externalizado se carga sin errores.
 
@@ -382,7 +382,7 @@
 
 ---
 
-### TC-PROMPT-002: Cache de Prompt Funciona
+### TC-45-PROMPT-002: Cache de Prompt Funciona
 
 **Objetivo:** Verificar que el prompt se cachea en memoria.
 
@@ -615,3 +615,12 @@
 
 **Estado:** ⏳ Pendiente de testing
 **Siguiente paso:** Ejecutar test cases en dispositivo Android real
+
+---
+
+**Versión:** 1.1.0
+**Fecha de creación:** 25 ene 2026
+**Última actualización:** 26 ene 2026
+**Autor:** Claude Opus 4.5 (Feature 4.5 Implementation)
+**Nuevos CommandTypes:** 6 (getTime, getDate, getBatteryLevel, thankYou, goodbye, conversationRejected)
+**Dependencia:** Platform Channel Kotlin para información del sistema

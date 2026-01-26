@@ -273,11 +273,13 @@ flutter logs | grep "LLMCommandCache"
 **Prioridad:** P1
 **Objetivo:** Verificar que el LLM retorna `unknown` para comandos no relacionados con la app
 
+**NOTA:** Desde Feature 4.5, comandos de sistema como "qué hora es", "qué día es hoy", y "cuánta batería tengo" SON comandos válidos y NO deben ser rechazados.
+
 **Pasos:**
-1. **Intento 1:** "qué hora es"
-2. **Intento 2:** "cuánto es dos más dos"
-3. **Intento 3:** "cuéntame un chiste"
-4. **Intento 4:** "cómo está el clima"
+1. **Intento 1:** "cuánto es dos más dos"
+2. **Intento 2:** "cuéntame un chiste"
+3. **Intento 3:** "cómo está el clima"
+4. **Intento 4:** "qué hora es en París"
 
 **Resultado Esperado (cada intento):**
 - ✅ Parser local retorna `unknown`
@@ -294,6 +296,8 @@ flutter logs | grep "LLMCommandCache"
 - LLM no inventa comandos que no existen
 - Responde `unknown` apropiadamente
 - Degradación graceful a mensaje de error
+- "qué hora es" SIMPLE se reconoce como getTime (NO rechazado)
+- "qué hora es en París" se rechaza (fuera de scope)
 
 ---
 
@@ -883,6 +887,11 @@ static const String claudeApiKey = 'sk-ant-INVALID_KEY_123';
 | **Toggle Contrast** | "ponme colores fuertes", "aumenta contraste" | TC-LLM-003 | ✅ Implementado |
 | **Volume** | "sube el sonido", "baja un poco", "máximo", "silencia" | TC-LLM-004 | ✅ Implementado |
 | **Open WhatsApp** | "hablar con María", "llama a Juan", "escríbele a Pedro" | TC-LLM-007, TC-LLM-008 | ✅ Implementado |
+| **Get Time** (4.5) | "qué hora es", "dime la hora", "qué hora" | Ver FUNCIONALIDAD_4.5 | ✅ Implementado |
+| **Get Date** (4.5) | "qué día es hoy", "fecha de hoy", "fecha" | Ver FUNCIONALIDAD_4.5 | ✅ Implementado |
+| **Get Battery** (4.5) | "cuánta batería", "nivel de batería", "pila" | Ver FUNCIONALIDAD_4.5 | ✅ Implementado |
+| **Thank You** (4.5) | "gracias", "muchas gracias", "te agradezco" | Ver FUNCIONALIDAD_4.5 | ✅ Implementado |
+| **Goodbye** (4.5) | "adiós", "chau", "hasta luego" | Ver FUNCIONALIDAD_4.5 | ✅ Implementado |
 
 ### **Casos Edge Testeados**
 
@@ -1153,10 +1162,12 @@ Antes de considerar Feature 4.4 completa:
 
 ---
 
-**Versión:** 1.1.0
+**Versión:** 1.2.0
 **Fecha de creación:** 23 ene 2026
-**Última actualización:** 25 ene 2026
-**Autor:** Claude (Feature 4.4 Implementation + Screen Sharing)
+**Última actualización:** 26 ene 2026
+**Autor:** Claude (Feature 4.4 Implementation + Screen Sharing + Feature 4.5 alignment)
 **Stack:** Flutter + Claude 3 Haiku + ElevenLabs STT + flutter_tts + Provider + NLPParser
-**Comandos totales:** 10 (Feature 4.3 + shareScreen)
+**Comandos totales:** 16 (Feature 4.3 + shareScreen + 6 comandos Feature 4.5)
 **Costo estimado:** ~$0.0001 por comando LLM (~$6/mes para 1000 usuarios activos)
+
+**Nota:** Los comandos de Feature 4.5 (sistema, social, conversación rechazada) son parseados localmente por NLPParser. El LLM fallback los reconoce cuando se expresan en lenguaje más natural.
