@@ -39,8 +39,9 @@ class WhatsAppService {
       throw AppError(
         category: ErrorCategory.platformChannel,
         code: e.code,
+        technicalMessage: e.message,
         userMessage: _getUserMessage(e.code),
-        originalError: e,
+        stackTrace: e.stacktrace != null ? StackTrace.fromString(e.stacktrace!) : null,
       );
     } catch (e, stackTrace) {
       developer.log(
@@ -53,8 +54,9 @@ class WhatsAppService {
       throw AppError(
         category: ErrorCategory.platformChannel,
         code: 'UNKNOWN_ERROR',
+        technicalMessage: e.toString(),
         userMessage: 'Error al abrir WhatsApp',
-        originalError: e,
+        stackTrace: stackTrace,
       );
     }
   }

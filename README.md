@@ -60,10 +60,12 @@ nano secrets.dart
 
 **Credenciales necesarias:**
 - **ElevenLabs:** API Key (para Speech-to-Text)
+- **Claude:** API Key (para LLM parsing de comandos - opcional)
 - **Firebase:** Web API Key, App IDs (web y Android), Project ID, Messaging Sender ID, Auth Domain, Storage Bucket
 
 **Obtener credenciales:**
 - ElevenLabs: [https://elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys)
+- Claude: [https://console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) (opcional - mejora reconocimiento de voz)
 - Firebase: Console → Project Settings → General → Your apps
 
 ### 3. Firebase

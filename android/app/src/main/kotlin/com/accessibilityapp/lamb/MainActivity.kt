@@ -2,6 +2,7 @@ package com.accessibilityapp.lamb
 
 import android.content.Context
 import android.content.Intent
+import android.os.BatteryManager
 import android.provider.Settings
 import android.util.DisplayMetrics
 import android.util.Log
@@ -9,6 +10,7 @@ import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.*
 
 /**
  * MainActivity for Flutter app
@@ -25,6 +27,7 @@ class MainActivity : FlutterActivity() {
         private const val TAG = "MainActivity"
         private const val CHANNEL = "com.accessibilityapp/foreground_service"
         private const val WHATSAPP_CHANNEL = "com.accessibilityapp/whatsapp"
+        private const val SYSTEM_INFO_CHANNEL = "com.accessibilityapp/system_info"
         private const val WHATSAPP_PACKAGE = "com.whatsapp"
     }
 
@@ -213,5 +216,116 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        // Setup MethodChannel for System Info
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SYSTEM_INFO_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getTime" -> {
+                    try {
+                        val time = getCurrentTimeFormatted()
+                        Log.d(TAG, "Time: $time")
+                        result.success(time)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get time", e)
+                        result.error(
+                            "TIME_ERROR",
+                            "Failed to get time: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
+                "getDate" -> {
+                    try {
+                        val date = getCurrentDateFormatted()
+                        Log.d(TAG, "Date: $date")
+                        result.success(date)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get date", e)
+                        result.error(
+                            "DATE_ERROR",
+                            "Failed to get date: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
+                "getBatteryLevel" -> {
+                    try {
+                        val level = getBatteryLevelInternal()
+                        Log.d(TAG, "Battery level: $level%")
+                        result.success(level)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get battery level", e)
+                        result.error(
+                            "BATTERY_ERROR",
+                            "Failed to get battery level: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+    }
+
+    /**
+     * Obtiene la hora actual en formato accesible para TTS
+     *
+     * Formato: "2:30 de la tarde" (no "14:30")
+     */
+    private fun getCurrentTimeFormatted(): String {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(Calendar.MINUTE)
+
+        // Determinar período del día para formato accesible
+        val period = when {
+            hour < 12 -> "de la mañana"
+            hour < 20 -> "de la tarde"
+            else -> "de la noche"
+        }
+
+        // Convertir a formato 12 horas
+        val hour12 = if (hour > 12) hour - 12 else if (hour == 0) 12 else hour
+
+        // Formatear minutos con 2 dígitos
+        val minuteStr = minute.toString().padStart(2, '0')
+
+        return "$hour12:$minuteStr $period"
+    }
+
+    /**
+     * Obtiene la fecha actual en formato accesible para TTS
+     *
+     * Formato: "25 de enero de 2026" (no "25/01/2026")
+     */
+    private fun getCurrentDateFormatted(): String {
+        val calendar = Calendar.getInstance()
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        val monthNames = arrayOf(
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+        )
+        val month = monthNames[calendar.get(Calendar.MONTH)]
+        val year = calendar.get(Calendar.YEAR)
+
+        return "$day de $month de $year"
+    }
+
+    /**
+     * Obtiene el nivel de batería actual
+     *
+     * Returns porcentaje de 0 a 100
+     */
+    private fun getBatteryLevelInternal(): Int {
+        val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
     }
 }

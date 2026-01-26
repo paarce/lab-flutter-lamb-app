@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/command.dart';
 import '../screens/remote_control_host_screen.dart';
 import '../services/elevenlabs_service.dart';
+import '../services/llm_parser_service.dart';
+import '../services/system_info_service.dart';
 import '../services/tts/tts_service.dart';
 import '../utils/nlp_parser.dart';
 import 'theme_provider.dart';
@@ -45,6 +47,8 @@ class VoiceCommandProvider extends ChangeNotifier {
   final ElevenLabsService _sttService;
   final TTSService _ttsService;
   final ThemeProvider _themeProvider;
+  final SystemInfoService _systemInfoService;
+  final LLMParserService? _llmParserService;
 
   /// Callback para navegacion (configurado por la screen)
   void Function(Widget screen)? _navigationCallback;
@@ -69,6 +73,12 @@ class VoiceCommandProvider extends ChangeNotifier {
 
   String? get errorMessage => _errorMessage;
 
+  /// Contador de comandos unknown consecutivos
+  int _consecutiveUnknownCommands = 0;
+
+  /// Máximo de comandos unknown antes de ayuda proactiva
+  static const int _maxUnknownBeforeHelp = 3;
+
   /// Subscription al stream de transcripción
   StreamSubscription<String>? _transcriptionSubscription;
 
@@ -82,9 +92,13 @@ class VoiceCommandProvider extends ChangeNotifier {
     required ElevenLabsService sttService,
     required TTSService ttsService,
     required ThemeProvider themeProvider,
+    required SystemInfoService systemInfoService,
+    LLMParserService? llmParserService,
   })  : _sttService = sttService,
         _ttsService = ttsService,
-        _themeProvider = themeProvider;
+        _themeProvider = themeProvider,
+        _systemInfoService = systemInfoService,
+        _llmParserService = llmParserService;
 
   /// Configura el callback de navegacion desde la screen
   void setNavigationCallback(void Function(Widget screen) callback) {
@@ -206,25 +220,63 @@ class VoiceCommandProvider extends ChangeNotifier {
   }
 
   /// Procesa la transcripción y ejecuta el comando
+  ///
+  /// Flujo de parsing híbrido:
+  /// 1. Parser local de keywords (rápido, <50ms)
+  /// 2. Si unknown, intentar LLM fallback (<3s timeout)
   Future<void> _processTranscript(String transcript) async {
     developer.log(
       'Processing transcript: $transcript',
       name: 'VoiceCommandProvider',
     );
+    // TEMPORAL DEBUG
+    debugPrint('🎤 [VoiceCommandProvider] Processing transcript: "$transcript"');
 
     _cancelTimeout();
 
     _setState(VoiceCommandState.processing);
 
     try {
-      // Parsear comando
-      final command = NLPParser.parse(transcript);
-      _lastCommand = command;
+      // Paso 1: Parser local de keywords (rápido, <50ms)
+      var command = NLPParser.parse(transcript);
 
       developer.log(
-        'Parsed command: ${command.type}',
+        'Local parser result: ${command.type}',
         name: 'VoiceCommandProvider',
       );
+      // TEMPORAL DEBUG
+      debugPrint('🔍 [VoiceCommandProvider] Local parser result: ${command.type}');
+
+      // Paso 2: Si unknown, intentar LLM fallback (si está disponible)
+      if (command.type == CommandType.unknown && _llmParserService != null) {
+        developer.log(
+          'Local parser returned unknown, trying LLM fallback',
+          name: 'VoiceCommandProvider',
+        );
+        // TEMPORAL DEBUG - Para testing TC-LLM-001
+        debugPrint('🔵 [VoiceCommandProvider] Local parser returned unknown, trying LLM fallback');
+        debugPrint('🔵 [VoiceCommandProvider] Transcript: "$transcript"');
+
+        final llmCommand = await _llmParserService!.parse(transcript);
+        if (llmCommand != null && llmCommand.type != CommandType.unknown) {
+          command = llmCommand;
+          developer.log(
+            'LLM parsed command: ${command.type} with params: ${command.parameters}',
+            name: 'VoiceCommandProvider',
+          );
+          // TEMPORAL DEBUG
+          debugPrint('✅ [VoiceCommandProvider] LLM parsed command: ${command.type} with params: ${command.parameters}');
+        } else {
+          developer.log(
+            'LLM also returned unknown or null',
+            name: 'VoiceCommandProvider',
+          );
+          // TEMPORAL DEBUG
+          debugPrint('❌ [VoiceCommandProvider] LLM also returned unknown or null');
+        }
+      }
+
+      _lastCommand = command;
 
       // Ejecutar comando
       await _executeCommand(command);
@@ -250,13 +302,23 @@ class VoiceCommandProvider extends ChangeNotifier {
 
     switch (command.type) {
       case CommandType.requestHelp:
-        await _ttsService.speak('Generando código de sesión para ayuda remota');
+        // Reproducir tutorial directamente
+        await _playTutorial();
+        developer.log(
+          'Playing tutorial as help response',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.shareScreen:
+        await _ttsService.speak('Abriendo control remoto para compartir pantalla');
 
         // Navegar a RemoteControlHostScreen usando callback
         if (_navigationCallback != null) {
           _navigationCallback!(const RemoteControlHostScreen());
           developer.log(
-            'Navigating to RemoteControlHostScreen',
+            'Navigating to RemoteControlHostScreen for screen sharing',
             name: 'VoiceCommandProvider',
           );
         } else {
@@ -265,17 +327,31 @@ class VoiceCommandProvider extends ChangeNotifier {
             name: 'VoiceCommandProvider',
           );
         }
+        _resetUnknownCounter();
         break;
 
       case CommandType.openWhatsApp:
-        await _ttsService.speak('Abriendo WhatsApp');
-        // TODO: Llamar platform channel
+        final contact = command.parameters?['contact'] as String?;
+        if (contact != null && contact.isNotEmpty) {
+          await _ttsService.speak('Abriendo chat de $contact');
+          developer.log(
+            'Opening WhatsApp chat for contact: $contact',
+            name: 'VoiceCommandProvider',
+          );
+        } else {
+          await _ttsService.speak('Abriendo WhatsApp');
+          developer.log(
+            'Opening WhatsApp (no specific contact)',
+            name: 'VoiceCommandProvider',
+          );
+        }
+        // TODO: Llamar platform channel para abrir WhatsApp
         // Nota: Este TODO se implementará en Feature 5 (WhatsApp Integration)
-        // junto con comandos avanzados como "abrir chat de [nombre]"
         developer.log(
           'TODO: Call platform channel to open WhatsApp',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.toggleContrast:
@@ -292,6 +368,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Theme toggled to: ${_themeProvider.currentMode}',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.adjustVolumeUp:
@@ -302,6 +379,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Volume increased to: ${_ttsService.volume}',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.adjustVolumeDown:
@@ -312,6 +390,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Volume decreased to: ${_ttsService.volume}',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.setVolumeMax:
@@ -321,6 +400,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Volume set to maximum: 1.0',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.setVolumeMin:
@@ -330,6 +410,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Volume set to minimum: 0.0',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.setVolumePercentage:
@@ -342,6 +423,7 @@ class VoiceCommandProvider extends ChangeNotifier {
             'Volume set to percentage: $percentage% ($volume)',
             name: 'VoiceCommandProvider',
           );
+          _resetUnknownCounter();
         } else {
           developer.log(
             'ERROR: setVolumePercentage without percentage parameter',
@@ -357,6 +439,7 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Playing tutorial',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
         break;
 
       case CommandType.listCommands:
@@ -365,16 +448,109 @@ class VoiceCommandProvider extends ChangeNotifier {
           'Listing available commands',
           name: 'VoiceCommandProvider',
         );
+        _resetUnknownCounter();
+        break;
+
+      // Comandos de Sistema (NUEVO)
+      case CommandType.getTime:
+        try {
+          final time = await _systemInfoService.getTime();
+          await _ttsService.speak('Son las $time');
+          developer.log('Time announced: $time', name: 'VoiceCommandProvider');
+          _resetUnknownCounter();
+        } catch (e) {
+          developer.log(
+            'Failed to get time',
+            name: 'VoiceCommandProvider',
+            error: e,
+          );
+          await _ttsService.speak('No pude obtener la hora');
+        }
+        break;
+
+      case CommandType.getDate:
+        try {
+          final date = await _systemInfoService.getDate();
+          await _ttsService.speak('Hoy es $date');
+          developer.log('Date announced: $date', name: 'VoiceCommandProvider');
+          _resetUnknownCounter();
+        } catch (e) {
+          developer.log(
+            'Failed to get date',
+            name: 'VoiceCommandProvider',
+            error: e,
+          );
+          await _ttsService.speak('No pude obtener la fecha');
+        }
+        break;
+
+      case CommandType.getBatteryLevel:
+        try {
+          final level = await _systemInfoService.getBatteryLevel();
+          await _ttsService.speak('Tienes $level por ciento de batería');
+          developer.log(
+            'Battery level: $level%',
+            name: 'VoiceCommandProvider',
+          );
+          _resetUnknownCounter();
+        } catch (e) {
+          developer.log(
+            'Failed to get battery level',
+            name: 'VoiceCommandProvider',
+            error: e,
+          );
+          await _ttsService.speak('No pude obtener el nivel de batería');
+        }
+        break;
+
+      // Respuestas Sociales (LIMITADO - NUEVO)
+      case CommandType.thankYou:
+        await _ttsService.speak('De nada, para eso estoy');
+        developer.log('User said thanks', name: 'VoiceCommandProvider');
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.goodbye:
+        await _ttsService.speak('Hasta luego');
+        developer.log('User said goodbye', name: 'VoiceCommandProvider');
+        _resetUnknownCounter();
+        break;
+
+      // Conversación Rechazada (NUEVO)
+      case CommandType.conversationRejected:
+        await _ttsService.speak(
+          'Hola. No puedo mantener conversaciones, pero puedo ayudarte con comandos. '
+          'Di "comandos disponibles" para escuchar qué puedo hacer.',
+        );
+        developer.log(
+          'Conversation attempt rejected',
+          name: 'VoiceCommandProvider',
+        );
+        _incrementUnknownCounter();
         break;
 
       case CommandType.cancel:
         await _ttsService.speak('Cancelado');
+        _resetUnknownCounter();
         break;
 
       case CommandType.unknown:
-        await _ttsService.speak('No entendí el comando. Intenta de nuevo.');
+        _incrementUnknownCounter();
+
+        if (_consecutiveUnknownCommands >= _maxUnknownBeforeHelp) {
+          // Ayuda proactiva después de 3 fallos
+          await _ttsService.speak(
+            'No he podido entender tus últimos comandos. '
+            'Voy a reproducir la lista de comandos disponibles.',
+          );
+          await _listAvailableCommands();
+          _resetUnknownCounter();
+        } else {
+          await _ttsService.speak('No entendí el comando. Intenta de nuevo.');
+        }
+
         developer.log(
-          'Unknown command: ${command.originalText}',
+          'Unknown command: ${command.originalText} (count: $_consecutiveUnknownCommands)',
           name: 'VoiceCommandProvider',
         );
         break;
@@ -390,7 +566,7 @@ Esta app te ayuda a comunicarte con tu familia y recibir asistencia remota.
 
 Los comandos principales son:
 
-Primero: Di "solicitar ayuda" para que un familiar se conecte a tu pantalla.
+Primero: Di "compartir pantalla" para que un familiar vea tu pantalla y te ayude.
 
 Segundo: Di "abrir WhatsApp" para abrir la aplicación de mensajes.
 
@@ -398,7 +574,9 @@ Tercero: Di "alto contraste" para cambiar los colores de la pantalla.
 
 Cuarto: Di "subir volumen" o "bajar volumen" para ajustar el sonido.
 
-Quinto: Di "comandos disponibles" para escuchar esta lista nuevamente.
+Quinto: Di "qué hora es" o "cuánta batería tengo" para información del sistema.
+
+Sexto: Di "comandos disponibles" para escuchar la lista completa.
 
 Para cancelar, di "cancelar" en cualquier momento.
 
@@ -413,7 +591,9 @@ Fin del tutorial.
     const commands = '''
 Los comandos disponibles son:
 
-Solicitar ayuda: Genera un código para que tu familiar se conecte.
+Compartir pantalla: Abre el control remoto para que alguien vea tu pantalla.
+
+Solicitar ayuda: Reproduce el tutorial de la aplicación.
 
 Abrir WhatsApp: Abre la aplicación de mensajes.
 
@@ -424,6 +604,15 @@ Subir volumen o bajar volumen: Ajusta el sonido.
 Volumen al máximo o silencio: Establece el volumen.
 
 Volumen al cincuenta por ciento: Establece un nivel específico.
+
+Información del sistema:
+"Qué hora es" para saber la hora actual.
+"Qué día es hoy" para saber la fecha.
+"Cuánta batería tengo" para conocer el nivel de batería.
+
+Comandos sociales:
+"Gracias" cuando quieras agradecer.
+"Adiós" cuando termines de usar la aplicación.
 
 Tutorial: Escucha una guía sobre cómo usar la app.
 
@@ -464,6 +653,26 @@ Cancelar: Detiene el reconocimiento de voz.
     _setState(VoiceCommandState.idle);
   }
 
+  /// Incrementa el contador de comandos unknown
+  void _incrementUnknownCounter() {
+    _consecutiveUnknownCommands++;
+    developer.log(
+      'Unknown counter: $_consecutiveUnknownCommands/$_maxUnknownBeforeHelp',
+      name: 'VoiceCommandProvider',
+    );
+  }
+
+  /// Resetea el contador de comandos unknown
+  void _resetUnknownCounter() {
+    if (_consecutiveUnknownCommands > 0) {
+      developer.log(
+        'Resetting unknown counter from $_consecutiveUnknownCommands to 0',
+        name: 'VoiceCommandProvider',
+      );
+      _consecutiveUnknownCommands = 0;
+    }
+  }
+
   /// Maneja errores durante el reconocimiento
   void _handleError(String message) {
     _errorMessage = message;
@@ -490,6 +699,7 @@ Cancelar: Detiene el reconocimiento de voz.
 
     _cancelTimeout();
     _transcriptionSubscription?.cancel();
+    _llmParserService?.dispose();
 
     super.dispose();
   }

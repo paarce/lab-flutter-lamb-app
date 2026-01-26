@@ -14,6 +14,19 @@ class NLPParser {
     'auxilio',
   ];
 
+  static const _shareScreenKeywords = [
+    'compartir pantalla',
+    'comparte pantalla',
+    'compartir mi pantalla',
+    'share screen',
+    'enseñar pantalla',
+    'enseña pantalla',
+    'mostrar pantalla',
+    'muestra pantalla',
+    'control remoto',
+    'acceso remoto',
+  ];
+
   static const _whatsappKeywords = [
     'whatsapp',
     'abrir whatsapp',
@@ -110,6 +123,54 @@ class NLPParser {
     'comandos',
   ];
 
+  // Sistema (NUEVO)
+  static const _timeKeywords = [
+    'qué hora es',
+    'qué hora',
+    'hora',
+    'dime la hora',
+  ];
+
+  static const _dateKeywords = [
+    'qué día es hoy',
+    'qué día es',
+    'fecha',
+    'día de hoy',
+    'fecha de hoy',
+  ];
+
+  static const _batteryKeywords = [
+    'cuánta batería',
+    'nivel de batería',
+    'batería',
+    'pila',
+    'cuánta pila',
+  ];
+
+  // Social (LIMITADO - NUEVO)
+  static const _thankYouKeywords = [
+    'gracias',
+    'muchas gracias',
+    'te agradezco',
+  ];
+
+  static const _goodbyeKeywords = [
+    'adiós',
+    'chau',
+    'chao',
+    'hasta luego',
+    'nos vemos',
+  ];
+
+  // Saludos sin objetivo (detectar para rechazar)
+  static const _greetingKeywords = [
+    'hola',
+    'buenos días',
+    'buenas tardes',
+    'buenas noches',
+    'buen día',
+  ];
+
   /// Parsea texto reconocido por STT y retorna el comando identificado
   ///
   /// [recognizedText] Texto transcrito por el servicio de STT
@@ -126,7 +187,41 @@ class NLPParser {
       );
     }
 
-    // Prioridad 2: Contraste
+    // Prioridad 2: Comandos de Sistema (NUEVO)
+    if (_matchesAny(normalized, _timeKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.getTime,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _dateKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.getDate,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _batteryKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.getBatteryLevel,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 3: Respuestas Sociales (LIMITADO - NUEVO)
+    if (_matchesAny(normalized, _thankYouKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.thankYou,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _goodbyeKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.goodbye,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 4: Contraste
     if (_matchesAny(normalized, _contrastKeywords)) {
       return VoiceCommand.now(
         type: CommandType.toggleContrast,
@@ -134,8 +229,8 @@ class NLPParser {
       );
     }
 
-    // Prioridad 3: Volumen (NUEVO)
-    // Sub-prioridad 3a: Comandos absolutos (máximo/mínimo antes que incrementales)
+    // Prioridad 5: Volumen
+    // Sub-prioridad 5a: Comandos absolutos (máximo/mínimo antes que incrementales)
     if (_matchesAny(normalized, _volumeMaxKeywords)) {
       return VoiceCommand.now(
         type: CommandType.setVolumeMax,
@@ -149,7 +244,7 @@ class NLPParser {
       );
     }
 
-    // Sub-prioridad 3b: Porcentaje específico (antes que incrementales)
+    // Sub-prioridad 5b: Porcentaje específico (antes que incrementales)
     final percentageMatch = _parseVolumePercentage(normalized);
     if (percentageMatch != null) {
       return VoiceCommand.now(
@@ -159,7 +254,7 @@ class NLPParser {
       );
     }
 
-    // Sub-prioridad 3c: Comandos incrementales
+    // Sub-prioridad 5c: Comandos incrementales
     if (_matchesAny(normalized, _volumeUpKeywords)) {
       return VoiceCommand.now(
         type: CommandType.adjustVolumeUp,
@@ -173,7 +268,7 @@ class NLPParser {
       );
     }
 
-    // Prioridad 4: Tutorial
+    // Prioridad 6: Tutorial
     if (_matchesAny(normalized, _tutorialKeywords)) {
       return VoiceCommand.now(
         type: CommandType.playTutorial,
@@ -181,7 +276,7 @@ class NLPParser {
       );
     }
 
-    // Prioridad 5: Listar comandos
+    // Prioridad 7: Listar comandos
     if (_matchesAny(normalized, _listCommandsKeywords)) {
       return VoiceCommand.now(
         type: CommandType.listCommands,
@@ -189,7 +284,15 @@ class NLPParser {
       );
     }
 
-    // Prioridad 6: Ayuda
+    // Prioridad 8: Compartir pantalla (antes de ayuda genérica)
+    if (_matchesAny(normalized, _shareScreenKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.shareScreen,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 9: Ayuda
     if (_matchesAny(normalized, _helpKeywords)) {
       return VoiceCommand.now(
         type: CommandType.requestHelp,
@@ -197,7 +300,7 @@ class NLPParser {
       );
     }
 
-    // Prioridad 7: WhatsApp
+    // Prioridad 10: WhatsApp
     if (_matchesAny(normalized, _whatsappKeywords)) {
       return VoiceCommand.now(
         type: CommandType.openWhatsApp,
@@ -205,7 +308,15 @@ class NLPParser {
       );
     }
 
-    // Prioridad 8: Comando no reconocido
+    // Prioridad 11: Saludos sin objetivo (rechazar conversaciones)
+    if (_matchesAny(normalized, _greetingKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.conversationRejected,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 12: Comando no reconocido
     return VoiceCommand.now(
       type: CommandType.unknown,
       originalText: recognizedText,

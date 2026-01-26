@@ -34,6 +34,12 @@ abstract class ErrorCodes {
   static const String netTimeout = 'TIMEOUT';
   static const String netConnectionUnstable = 'CONNECTION_UNSTABLE';
 
+  // LLM PARSER (Feature 4.4)
+  static const String llmApiKeyInvalid = 'LLM_API_KEY_INVALID';
+  static const String llmRateLimitExceeded = 'LLM_RATE_LIMIT_EXCEEDED';
+  static const String llmTimeout = 'LLM_TIMEOUT';
+  static const String llmParseError = 'LLM_PARSE_ERROR';
+
   // UNKNOWN
   static const String unknownError = 'UNKNOWN_ERROR';
 }

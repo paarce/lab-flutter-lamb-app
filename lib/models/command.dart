@@ -1,7 +1,10 @@
 /// Tipos de comandos de voz soportados
 enum CommandType {
-  /// "solicitar ayuda" → Genera código sesión remota
+  /// "solicitar ayuda" → Muestra tutorial/lista de comandos
   requestHelp,
+
+  /// "compartir pantalla" → Abre control remoto (compartir pantalla)
+  shareScreen,
 
   /// "abrir WhatsApp" → Abre WhatsApp
   openWhatsApp,
@@ -32,6 +35,30 @@ enum CommandType {
 
   /// "cancelar" → Detiene listening
   cancel,
+
+  // Sistema (3 comandos nuevos)
+
+  /// "qué hora es" → Obtiene hora actual
+  getTime,
+
+  /// "qué día es hoy" → Obtiene fecha actual
+  getDate,
+
+  /// "cuánta batería tengo" → Obtiene nivel de batería
+  getBatteryLevel,
+
+  // Social (2 comandos limitados)
+
+  /// "gracias" → Respuesta a agradecimiento
+  thankYou,
+
+  /// "adiós" → Respuesta a despedida
+  goodbye,
+
+  // Rechazo de conversaciones
+
+  /// Saludo sin objetivo claro
+  conversationRejected,
 
   /// No reconocido
   unknown,

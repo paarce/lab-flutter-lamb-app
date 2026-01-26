@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'models/app_theme.dart';
 import 'providers/remote_control_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/voice_command_provider.dart';
@@ -12,7 +11,9 @@ import 'services/elevenlabs_service.dart';
 import 'firebase_options.dart';
 import 'services/firebase_signaling_service.dart';
 import 'services/error_handler_service.dart';
+import 'services/llm_parser_service.dart';
 import 'services/logger_service.dart';
+import 'services/system_info_service.dart';
 import 'services/tts/tts_factory.dart';
 import 'services/tts/tts_service.dart';
 
@@ -79,6 +80,17 @@ class MyApp extends StatelessWidget {
           create: (_) => ErrorHandlerService(),
         ),
 
+        // LLM Parser Service (Feature 4.4 - Fallback para comandos de voz)
+        Provider<LLMParserService>(
+          create: (_) => LLMParserService(),
+          dispose: (_, service) => service.dispose(),
+        ),
+
+        // System Info Service (Feature 4.5 - Comandos de sistema)
+        Provider<SystemInfoService>(
+          create: (_) => SystemInfoService(),
+        ),
+
         // Initialize providers with dependencies
         ChangeNotifierProvider<RemoteControlProvider>(
           create: (context) => RemoteControlProvider(
@@ -91,12 +103,14 @@ class MyApp extends StatelessWidget {
           create: (_) => ThemeProvider(),
         ),
 
-        // Voice command provider
+        // Voice command provider (with LLM fallback for natural language parsing)
         ChangeNotifierProvider<VoiceCommandProvider>(
           create: (context) => VoiceCommandProvider(
             sttService: context.read<ElevenLabsService>(),
             ttsService: context.read<TTSService>(),
             themeProvider: context.read<ThemeProvider>(),
+            systemInfoService: context.read<SystemInfoService>(),
+            llmParserService: context.read<LLMParserService>(),
           ),
         ),
       ],
