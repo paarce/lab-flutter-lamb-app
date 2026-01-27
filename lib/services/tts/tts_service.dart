@@ -43,4 +43,11 @@ abstract class TTSService {
   ///
   /// [step] Cantidad a decrementar (default: 0.1 = 10%)
   Future<void> decreaseVolume({double step = 0.1});
+
+  /// Indica si el TTS está actualmente hablando
+  ///
+  /// Útil para:
+  /// - Ignorar toques accidentales mientras se reproduce audio
+  /// - Coordinar acciones que dependen de que termine el TTS
+  bool get isSpeaking;
 }

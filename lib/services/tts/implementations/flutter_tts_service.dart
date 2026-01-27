@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../tts_service.dart';
 import '../tts_config.dart';
 
@@ -18,6 +19,10 @@ class FlutterTtsService extends TTSService {
   late FlutterTts _flutterTts;
   bool _isInitialized = false;
   double _currentVolume = TTSConfig.volume;
+  bool _isSpeaking = false;
+
+  @override
+  bool get isSpeaking => _isSpeaking;
 
   /// Constructor por defecto
   FlutterTtsService() {
@@ -55,21 +60,42 @@ class FlutterTtsService extends TTSService {
     }
 
     try {
-      onStart?.call();
+      // Configurar callback de inicio (más preciso que llamar onStart directamente)
+      _flutterTts.setStartHandler(() {
+        _isSpeaking = true;
+        WakelockPlus.enable();
+        debugPrint('TTS started - wakelock enabled');
+        onStart?.call();
+      });
 
-      // Configurar callbacks
+      // Configurar callback de completado
       _flutterTts.setCompletionHandler(() {
+        _isSpeaking = false;
+        WakelockPlus.disable();
+        debugPrint('TTS completed - wakelock disabled');
         onComplete?.call();
       });
 
+      // Configurar callback de cancelación
+      _flutterTts.setCancelHandler(() {
+        _isSpeaking = false;
+        WakelockPlus.disable();
+        debugPrint('TTS cancelled - wakelock disabled');
+      });
+
+      // Configurar callback de error
       _flutterTts.setErrorHandler((message) {
-        debugPrint('TTS error: $message');
+        _isSpeaking = false;
+        WakelockPlus.disable();
+        debugPrint('TTS error: $message - wakelock disabled');
         onError?.call(message.toString());
       });
 
       // Reproducir
       await _flutterTts.speak(text);
     } catch (e) {
+      _isSpeaking = false;
+      await WakelockPlus.disable();
       debugPrint('Error en TTS speak: $e');
       onError?.call(e.toString());
       rethrow;
@@ -79,7 +105,10 @@ class FlutterTtsService extends TTSService {
   @override
   Future<void> stop() async {
     try {
+      _isSpeaking = false;
+      await WakelockPlus.disable();
       await _flutterTts.stop();
+      debugPrint('TTS stopped - wakelock disabled');
     } catch (e) {
       debugPrint('Error deteniendo TTS: $e');
     }

@@ -68,6 +68,12 @@ dependencies:
   # Permisos
   permission_handler: ^11.1.0
 
+  # Screen wakelock para mantener pantalla activa durante TTS
+  wakelock_plus: ^1.2.1
+
+  # Haptic feedback mejorado (mejor compatibilidad con Samsung/OneUI)
+  haptic_feedback: ^0.6.4+3
+
   # Firebase
   firebase_core: ^3.15.0
   cloud_firestore: ^5.0.0

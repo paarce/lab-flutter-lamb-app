@@ -209,18 +209,31 @@ class LLMParserService {
           'Could not extract JSON from response: $response',
           name: 'LLMParserService',
         );
+        // DEBUG: Ver qué respuesta no se pudo parsear
+        debugPrint('⚠️ [LLMParserService] Could not extract JSON from: "$response"');
         return null;
       }
+
+      // DEBUG: Mostrar JSON extraído
+      debugPrint('📦 [LLMParserService] Extracted JSON: $jsonStr');
 
       final json = jsonDecode(jsonStr) as Map<String, dynamic>;
       final typeStr = json['type'] as String?;
       final params = json['params'] as Map<String, dynamic>?;
 
+      // DEBUG: Mostrar tipo extraído del JSON
+      debugPrint('🏷️ [LLMParserService] Type from JSON: "$typeStr"');
+      debugPrint('📋 [LLMParserService] Params from JSON: $params');
+
       if (typeStr == null) {
+        debugPrint('❌ [LLMParserService] Type is null!');
         return null;
       }
 
       final commandType = _mapTypeToCommand(typeStr);
+
+      // DEBUG: Mostrar mapeo de tipo a CommandType
+      debugPrint('🔄 [LLMParserService] Mapped "$typeStr" → $commandType');
 
       developer.log(
         'Parsed LLM command: $commandType with params: $params',

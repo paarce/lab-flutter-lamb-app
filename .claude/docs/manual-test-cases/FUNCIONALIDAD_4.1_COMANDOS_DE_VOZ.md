@@ -1,9 +1,9 @@
 # 📋 MANUAL TEST CASES - Funcionalidad 4.1: Voice Command Infrastructure (Core)
 
-**Versión:** 1.1.0
+**Versión:** 1.2.0
 **Funcionalidad:** Sistema de comandos de voz con ElevenLabs STT + flutter_tts
 **Plataforma:** Android 7.0+ (API 24+)
-**Total Test Cases:** 16 (12 P0 + 4 P1)
+**Total Test Cases:** 20 (15 P0 + 5 P1)
 
 ---
 
@@ -19,6 +19,7 @@
 - [E. Timeout y Cancelación](#-categoría-e-timeout-y-cancelación)
 - [F. Feedback TTS](#-categoría-f-feedback-tts)
 - [G. Accesibilidad (TalkBack)](#-categoría-g-accesibilidad-talkback)
+- [H. Mejoras UX del Botón de Voz](#-categoría-h-mejoras-ux-del-botón-de-voz)
 - [Resumen de Cobertura](#-resumen-de-cobertura)
 
 ---
@@ -104,7 +105,8 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 | E. Timeout y Cancelación | 2 | 1 | 1 | ~10 min |
 | F. Feedback TTS | 1 | 1 | 0 | ~5 min |
 | G. Accesibilidad (TalkBack) | 1 | 0 | 1 | ~10 min |
-| **TOTAL** | **16** | **12** | **4** | **~80 min** |
+| H. Mejoras UX del Botón de Voz | 4 | 3 | 1 | ~15 min |
+| **TOTAL** | **20** | **15** | **5** | **~95 min** |
 
 ---
 
@@ -675,6 +677,171 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 
 ---
 
+## 📂 CATEGORÍA H: MEJORAS UX DEL BOTÓN DE VOZ
+
+**Prerequisitos específicos:** Botón de comandos de voz funcionando correctamente
+
+---
+
+### ✅ TC-VOICE-017: Ignorar toques mientras TTS habla
+
+**Prioridad:** P0
+**Objetivo:** Verificar que el botón ignora toques mientras el TTS está reproduciendo audio
+
+**Prerequisitos adicionales:**
+- TTS service funcionando
+- Volumen multimedia > 50%
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Mantener presionado botón de micrófono
+3. Decir: "tutorial" (genera TTS largo de ~30 segundos)
+4. Mientras el TTS está hablando, intentar presionar el botón de micrófono nuevamente
+5. Observar comportamiento
+
+**Resultado Esperado:**
+- ✅ Botón permanece visualmente habilitado (NO cambia a gris)
+- ✅ Al presionar durante TTS: NO hay feedback háptico
+- ✅ Al presionar durante TTS: NO se inicia nueva sesión de escucha
+- ✅ TTS continúa reproduciendo sin interrupción
+- ✅ **En logs:**
+  ```
+  [VoiceCommandScreen] Ignoring touch - TTS is speaking
+  ```
+- ✅ Después de que TTS termina, botón vuelve a funcionar normalmente
+
+**Criterios de Aceptación:**
+- 0 interrupciones del TTS por toques accidentales
+- Botón NO se ve "deshabilitado" para TalkBack
+- Usuario puede tocar múltiples veces sin efectos
+
+---
+
+### ✅ TC-VOICE-018: Duración mínima de presión (200ms)
+
+**Prioridad:** P0
+**Objetivo:** Verificar que se requieren 200ms de presión antes de iniciar escucha
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. **Intento 1:** Tocar y soltar rápidamente (<100ms) - "tap accidental"
+3. Observar comportamiento
+4. **Intento 2:** Mantener presionado exactamente 150ms y soltar
+5. Observar comportamiento
+6. **Intento 3:** Mantener presionado 250ms (>200ms)
+7. Observar que inicia escucha
+8. Soltar después de 1 segundo
+
+**Resultado Esperado:**
+
+**Intento 1 y 2 (< 200ms):**
+- ✅ Feedback háptico medio (`Haptics.vibrate(HapticsType.medium)`) al presionar
+- ✅ NO se inicia escucha (ícono NO cambia a rojo)
+- ✅ NO hay consumo de API de ElevenLabs
+- ✅ Estado permanece en `idle`
+- ✅ NO hay mensaje de error (comportamiento esperado)
+
+**Intento 3 (≥ 200ms):**
+- ✅ Feedback háptico medio al presionar (inicial)
+- ✅ A los ~200ms: Feedback háptico fuerte (`Haptics.vibrate(HapticsType.heavy)`) - indica "ahora escuchando"
+- ✅ Ícono cambia a rojo
+- ✅ Transcripción se activa
+- ✅ **En logs:**
+  ```
+  [VoiceCommandProvider] Starting voice command listening
+  ```
+- ✅ Al soltar: Feedback háptico fuerte nuevamente
+- ✅ Se procesa el comando
+- ✅ **Nota:** Usa paquete `haptic_feedback` para compatibilidad con Samsung
+
+**Criterios de Aceptación:**
+- Toques < 200ms NO inician escucha (ahorro de API)
+- Feedback háptico es claro y diferenciado
+- Timer se cancela correctamente al soltar antes de 200ms
+
+---
+
+### ✅ TC-VOICE-019: Feedback háptico diferenciado
+
+**Prioridad:** P1
+**Objetivo:** Verificar que el feedback háptico es adecuado para personas con baja visión
+
+**Prerequisitos adicionales:**
+- Dispositivo con motor de vibración funcional
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Mantener presionado botón >200ms
+3. **Momento 1:** Al presionar inicialmente
+4. **Momento 2:** A los 200ms (cuando inicia escucha)
+5. **Momento 3:** Al soltar botón
+6. Repetir 3 veces para validar consistencia
+
+**Resultado Esperado:**
+- ✅ **Momento 1 (presionar):**
+  - Vibración media (`Haptics.vibrate(HapticsType.medium)`)
+  - Indica: "Registré tu toque"
+- ✅ **Momento 2 (200ms):**
+  - Vibración fuerte (`Haptics.vibrate(HapticsType.heavy)`)
+  - Indica: "AHORA estoy escuchando"
+- ✅ **Momento 3 (soltar):**
+  - Vibración fuerte (`Haptics.vibrate(HapticsType.heavy)`)
+  - Indica: "Detuve la escucha"
+- ✅ Feedback es consistente en las 3 repeticiones
+- ✅ Vibraciones son claramente perceptibles en Samsung y otros dispositivos
+- ✅ **Nota:** Usa paquete `haptic_feedback` para mejor compatibilidad con Samsung/OneUI
+
+**Criterios de Aceptación:**
+- 3/3 repeticiones con feedback consistente
+- Usuario puede distinguir claramente los 3 momentos
+- Feedback háptico no interfiere con TalkBack
+
+---
+
+### ✅ TC-VOICE-020: Pantalla permanece activa durante TTS
+
+**Prioridad:** P0
+**Objetivo:** Verificar que la pantalla no se apaga durante TTS largo
+
+**Prerequisitos adicionales:**
+- Screen timeout del dispositivo configurado en 15 segundos (Settings → Display → Screen timeout → 15 seconds)
+
+**Pasos:**
+1. Configurar screen timeout a 15 segundos
+2. Abrir `VoiceCommandScreen`
+3. Mantener presionado botón >200ms
+4. Decir: "comandos disponibles" (genera TTS de ~60 segundos - lista completa)
+5. NO tocar el dispositivo durante el TTS
+6. Observar si la pantalla se apaga o permanece activa
+7. Esperar a que TTS termine completamente
+8. Esperar 20 segundos adicionales SIN TTS
+9. Observar si ahora sí se apaga
+
+**Resultado Esperado:**
+- ✅ Durante TTS (60 segundos):
+  - Pantalla permanece encendida TODO el tiempo
+  - NO se atenúa ni apaga a los 15 segundos
+  - **En logs:**
+    ```
+    [FlutterTtsService] TTS started - wakelock enabled
+    ```
+- ✅ Al terminar TTS:
+  - **En logs:**
+    ```
+    [FlutterTtsService] TTS completed - wakelock disabled
+    ```
+- ✅ Después de terminar TTS (20s adicionales):
+  - Pantalla se apaga normalmente según configuración del sistema (15s)
+  - Wakelock se desactivó correctamente
+
+**Criterios de Aceptación:**
+- Pantalla NUNCA se apaga durante TTS activo
+- Wakelock se desactiva automáticamente al terminar TTS
+- Wakelock se desactiva también si hay error o cancelación
+- Sin memory leaks (wakelock limpiado correctamente)
+
+---
+
 ## 📊 RESUMEN DE COBERTURA
 
 ### **Cobertura de Funcionalidades**
@@ -688,6 +855,7 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 | Timeout y cancelación | TC-VOICE-013, TC-VOICE-014 | ✅ Cubierta |
 | Feedback TTS | TC-VOICE-015 | ✅ Cubierta |
 | Accesibilidad (TalkBack) | TC-VOICE-016 | ✅ Cubierta |
+| Mejoras UX del botón de voz | TC-VOICE-017, TC-VOICE-018, TC-VOICE-019, TC-VOICE-020 | ✅ Cubierta |
 
 ### **Comandos MVP Soportados**
 
@@ -715,6 +883,7 @@ Ejecutar TODOS los test cases en:
 - TC-VOICE-010, TC-VOICE-011 (Ejecución de comandos implementados)
 - TC-VOICE-013 (Timeout)
 - TC-VOICE-015 (Feedback TTS)
+- TC-VOICE-017, TC-VOICE-018, TC-VOICE-020 (UX del botón: ignorar toques, 200ms delay, wakelock)
 
 **P1 (Importantes - Pueden ser hotfixed):**
 - TC-VOICE-004, TC-VOICE-005 (STT avanzado)
@@ -722,6 +891,7 @@ Ejecutar TODOS los test cases en:
 - TC-VOICE-012 (Platform channel WhatsApp - pendiente integración)
 - TC-VOICE-014 (Timeout reset)
 - TC-VOICE-016 (TalkBack)
+- TC-VOICE-019 (Feedback háptico diferenciado)
 
 ### **Métricas de Éxito**
 
@@ -828,7 +998,8 @@ adb shell dumpsys package com.accessibilityapp.lamb | grep RECORD_AUDIO
 
 ---
 
-**Versión:** 1.1.0
-**Última actualización:** 22 ene 2026
-**Autor:** Claude (Funcionalidad 4.1 Implementation + TODOs completados)
-**Stack:** Flutter + ElevenLabs STT + flutter_tts + Provider + ThemeProvider
+**Versión:** 1.2.0
+**Última actualización:** 26 ene 2026
+**Autor:** Claude (Funcionalidad 4.1 Implementation + TODOs completados + Mejoras UX)
+**Stack:** Flutter + ElevenLabs STT + flutter_tts + Provider + ThemeProvider + wakelock_plus + haptic_feedback
+**Nueva Categoría:** H. Mejoras UX del Botón de Voz (4 test cases: TC-VOICE-017 a TC-VOICE-020)

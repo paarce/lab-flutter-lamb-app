@@ -11,6 +11,9 @@
     <!-- Permiso para captura de video/cámara (requerido por WebRTC) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Permiso para vibración háptica (requerido en Samsung/OneUI) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!-- Permiso para servicio en foreground (necesario para sesión remota activa) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />

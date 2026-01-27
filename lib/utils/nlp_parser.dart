@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:lamb/models/command.dart';
 
 /// Parser simple de lenguaje natural basado en keywords
@@ -179,6 +180,9 @@ class NLPParser {
   static VoiceCommand parse(String recognizedText) {
     final normalized = recognizedText.toLowerCase().trim();
 
+    // DEBUG: Mostrar texto normalizado
+    debugPrint('🔎 [NLPParser] Parsing: "$normalized"');
+
     // Prioridad 1: Comando cancelar (puede interrumpir otros comandos)
     if (_matchesAny(normalized, _cancelKeywords)) {
       return VoiceCommand.now(
@@ -310,6 +314,8 @@ class NLPParser {
 
     // Prioridad 11: Saludos sin objetivo (rechazar conversaciones)
     if (_matchesAny(normalized, _greetingKeywords)) {
+      // DEBUG: Mostrar que se detectó saludo
+      debugPrint('👋 [NLPParser] GREETING DETECTED: "$normalized" → conversationRejected');
       return VoiceCommand.now(
         type: CommandType.conversationRejected,
         originalText: recognizedText,
@@ -317,6 +323,8 @@ class NLPParser {
     }
 
     // Prioridad 12: Comando no reconocido
+    // DEBUG: Mostrar que no se reconoció nada
+    debugPrint('❓ [NLPParser] NO MATCH: "$normalized" → unknown');
     return VoiceCommand.now(
       type: CommandType.unknown,
       originalText: recognizedText,

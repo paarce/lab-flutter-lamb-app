@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/voice_command_provider.dart';
 import '../services/error_handler_service.dart';
 import '../services/tts/tts_factory.dart';
+import '../services/tts/tts_service.dart';
 import '../widgets/accessible_button.dart';
 import '../widgets/base_screen_layout.dart';
 import 'remote_control_host_screen.dart';
@@ -29,6 +32,12 @@ class VoiceCommandScreen extends StatefulWidget {
 class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   bool _callbackConfigured = false;
 
+  /// Timer para duración mínima de presión (200ms)
+  Timer? _minimumPressTimer;
+
+  /// Indica si estamos esperando que el timer de 200ms expire
+  bool _isWaitingMinimumPress = false;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +60,12 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _minimumPressTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -345,12 +360,20 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   }
 
   /// Construye el botón custom de press-and-hold (USAR ESTE)
+  ///
+  /// Mejoras UX implementadas:
+  /// - Ignora toques mientras TTS habla (sin deshabilitar visualmente)
+  /// - Requiere 200ms de presión mínima antes de iniciar escucha
+  /// - Feedback háptico diferenciado: medio al presionar, fuerte al activar/soltar
+  /// - Usa paquete haptic_feedback para mejor compatibilidad con Samsung/OneUI
   Widget _buildCustomPressAndHoldButton(
     BuildContext context,
     VoiceCommandProvider provider,
     bool isListening,
     bool isBusy,
   ) {
+    final ttsService = TTSFactory.getInstance();
+
     final buttonColor = isListening
         ? Colors.red
         : isBusy
@@ -380,15 +403,39 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
       hint: 'Mantén presionado para grabar',
       enabled: !isBusy || isListening,
       child: Listener(
-        onPointerDown: (_) {
+        onPointerDown: (_) async {
+          // Ignorar si TTS está hablando (sin feedback para no confundir)
+          if (ttsService.isSpeaking) {
+            debugPrint('Ignoring touch - TTS is speaking');
+            return;
+          }
+
           if (!isBusy) {
-            HapticFeedback.mediumImpact();
-            provider.startListening();
+            // Feedback inmediato de que registró el toque (intensidad media)
+            // Usa haptic_feedback package para mejor compatibilidad con Samsung
+            await Haptics.vibrate(HapticsType.medium);
+            _isWaitingMinimumPress = true;
+
+            // Timer de 200ms antes de iniciar escucha
+            _minimumPressTimer = Timer(const Duration(milliseconds: 200), () async {
+              if (_isWaitingMinimumPress && mounted) {
+                // Feedback fuerte de que AHORA sí está escuchando
+                await Haptics.vibrate(HapticsType.heavy);
+                provider.startListening();
+                _isWaitingMinimumPress = false;
+              }
+            });
           }
         },
-        onPointerUp: (_) {
+        onPointerUp: (_) async {
+          // Cancelar timer si suelta antes de 200ms
+          _minimumPressTimer?.cancel();
+          _isWaitingMinimumPress = false;
+
+          // Solo procesar si estaba escuchando
           if (isListening) {
-            HapticFeedback.mediumImpact();
+            // Feedback fuerte al detener la escucha
+            await Haptics.vibrate(HapticsType.heavy);
             provider.stopListening();
           }
         },

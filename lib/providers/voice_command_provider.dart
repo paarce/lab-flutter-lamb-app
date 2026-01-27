@@ -518,6 +518,10 @@ class VoiceCommandProvider extends ChangeNotifier {
 
       // Conversación Rechazada (NUEVO)
       case CommandType.conversationRejected:
+        // DEBUG: Mostrar que se ejecuta este caso
+        debugPrint('🚫 [VoiceCommandProvider] CONVERSATION REJECTED for: "${command.originalText}"');
+        debugPrint('🚫 [VoiceCommandProvider] Counter BEFORE: $_consecutiveUnknownCommands');
+
         await _ttsService.speak(
           'Hola. No puedo mantener conversaciones, pero puedo ayudarte con comandos. '
           'Di "comandos disponibles" para escuchar qué puedo hacer.',
@@ -527,6 +531,9 @@ class VoiceCommandProvider extends ChangeNotifier {
           name: 'VoiceCommandProvider',
         );
         _incrementUnknownCounter();
+
+        // DEBUG: Mostrar contador después
+        debugPrint('🚫 [VoiceCommandProvider] Counter AFTER: $_consecutiveUnknownCommands');
         break;
 
       case CommandType.cancel:
@@ -535,10 +542,18 @@ class VoiceCommandProvider extends ChangeNotifier {
         break;
 
       case CommandType.unknown:
+        // DEBUG: Mostrar que se ejecuta este caso
+        debugPrint('❓ [VoiceCommandProvider] UNKNOWN COMMAND for: "${command.originalText}"');
+        debugPrint('❓ [VoiceCommandProvider] Counter BEFORE: $_consecutiveUnknownCommands');
+
         _incrementUnknownCounter();
+
+        // DEBUG: Mostrar contador después
+        debugPrint('❓ [VoiceCommandProvider] Counter AFTER: $_consecutiveUnknownCommands');
 
         if (_consecutiveUnknownCommands >= _maxUnknownBeforeHelp) {
           // Ayuda proactiva después de 3 fallos
+          debugPrint('🆘 [VoiceCommandProvider] PROACTIVE HELP TRIGGERED! Counter = $_consecutiveUnknownCommands');
           await _ttsService.speak(
             'No he podido entender tus últimos comandos. '
             'Voy a reproducir la lista de comandos disponibles.',
