@@ -38,7 +38,13 @@ Audio:
 
 Información y Guía:
 - tutorial: Reproducir el tutorial de uso
-- list_commands: Listar los comandos disponibles
+- list_commands: Listar las categorías de comandos disponibles (intro)
+- list_all_commands: Listar TODOS los comandos (lista completa)
+- list_category_assistance: Listar comandos de asistencia
+- list_category_whatsapp: Listar comandos de WhatsApp
+- list_category_volume: Listar comandos de volumen
+- list_category_info: Listar comandos de información del sistema
+- list_category_settings: Listar comandos de ajustes
 
 Sistema (NUEVO):
 - get_time: Obtener hora actual ("qué hora es")
@@ -125,6 +131,17 @@ Conversaciones rechazadas:
 - "buenos días" → {"type": "conversation_rejected", "params": null}
 - "cómo estás" → {"type": "conversation_rejected", "params": null}
 - "hola cómo te va" → {"type": "conversation_rejected", "params": null}
+
+Categorías de comandos:
+- "comandos disponibles" → {"type": "list_commands", "params": null}
+- "qué puedo hacer" → {"type": "list_commands", "params": null}
+- "todos los comandos" → {"type": "list_all_commands", "params": null}
+- "lista completa" → {"type": "list_all_commands", "params": null}
+- "comandos de asistencia" → {"type": "list_category_assistance", "params": null}
+- "comandos de whatsapp" → {"type": "list_category_whatsapp", "params": null}
+- "comandos de volumen" → {"type": "list_category_volume", "params": null}
+- "comandos de información" → {"type": "list_category_info", "params": null}
+- "comandos de ajustes" → {"type": "list_category_settings", "params": null}
 
 Unknown:
 - "cuéntame un chiste" → {"type": "unknown", "params": null}

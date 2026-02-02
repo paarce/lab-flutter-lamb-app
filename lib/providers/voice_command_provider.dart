@@ -445,7 +445,61 @@ class VoiceCommandProvider extends ChangeNotifier {
       case CommandType.listCommands:
         await _listAvailableCommands();
         developer.log(
-          'Listing available commands',
+          'Listing command categories intro',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.listAllCommands:
+        await _listAllCommands();
+        developer.log(
+          'Listing all commands (full list)',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.listCategoryAssistance:
+        await _listCategoryAssistance();
+        developer.log(
+          'Listing assistance category commands',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.listCategoryWhatsapp:
+        await _listCategoryWhatsapp();
+        developer.log(
+          'Listing WhatsApp category commands',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.listCategoryVolume:
+        await _listCategoryVolume();
+        developer.log(
+          'Listing volume category commands',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.listCategoryInfo:
+        await _listCategoryInfo();
+        developer.log(
+          'Listing info category commands',
+          name: 'VoiceCommandProvider',
+        );
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.listCategorySettings:
+        await _listCategorySettings();
+        developer.log(
+          'Listing settings category commands',
           name: 'VoiceCommandProvider',
         );
         _resetUnknownCounter();
@@ -601,40 +655,127 @@ Fin del tutorial.
     await _ttsService.speak(tutorial);
   }
 
-  /// Lista los comandos disponibles por TTS
+  /// Lista las categorías de comandos disponibles (intro corto)
   Future<void> _listAvailableCommands() async {
+    const intro = '''
+Hay 5 categorías de comandos: Asistencia, WhatsApp, Volumen, Información y Ajustes.
+
+Di "comandos de" seguido de una categoría para escuchar sus comandos.
+Por ejemplo: di "comandos de asistencia" para conocer esos comandos.
+
+O di "todos los comandos" para escuchar la lista completa.
+''';
+
+    await _ttsService.speak(intro);
+  }
+
+  /// Lista TODOS los comandos disponibles (lista completa)
+  Future<void> _listAllCommands() async {
     const commands = '''
-Los comandos disponibles son:
+Lista completa de comandos:
 
+Asistencia:
 Compartir pantalla: Abre el control remoto para que alguien vea tu pantalla.
+Tutorial: Escucha una guía sobre cómo usar la app.
 
-Solicitar ayuda: Reproduce el tutorial de la aplicación.
-
+WhatsApp:
 Abrir WhatsApp: Abre la aplicación de mensajes.
 
-Alto contraste: Cambia el tema de colores.
-
+Volumen:
 Subir volumen o bajar volumen: Ajusta el sonido.
-
 Volumen al máximo o silencio: Establece el volumen.
-
 Volumen al cincuenta por ciento: Establece un nivel específico.
 
 Información del sistema:
-"Qué hora es" para saber la hora actual.
-"Qué día es hoy" para saber la fecha.
-"Cuánta batería tengo" para conocer el nivel de batería.
+Qué hora es: Para saber la hora actual.
+Qué día es hoy: Para saber la fecha.
+Cuánta batería tengo: Para conocer el nivel de batería.
+
+Ajustes:
+Alto contraste: Cambia el tema de colores.
+Cancelar: Detiene el reconocimiento de voz.
 
 Comandos sociales:
-"Gracias" cuando quieras agradecer.
-"Adiós" cuando termines de usar la aplicación.
-
-Tutorial: Escucha una guía sobre cómo usar la app.
-
-Cancelar: Detiene el reconocimiento de voz.
+Gracias: Cuando quieras agradecer.
+Adiós: Cuando termines de usar la aplicación.
 ''';
 
     await _ttsService.speak(commands);
+  }
+
+  /// Lista comandos de la categoría Asistencia
+  Future<void> _listCategoryAssistance() async {
+    const text = '''
+Comandos de asistencia:
+
+Compartir pantalla: Permite que un familiar vea tu pantalla y te ayude de forma remota.
+
+Tutorial: Escucha una guía completa de uso de la aplicación.
+''';
+
+    await _ttsService.speak(text);
+  }
+
+  /// Lista comandos de la categoría WhatsApp
+  Future<void> _listCategoryWhatsapp() async {
+    const text = '''
+Comandos de WhatsApp:
+
+Abrir WhatsApp: Abre la aplicación de mensajes para que puedas comunicarte con tus contactos.
+''';
+
+    await _ttsService.speak(text);
+  }
+
+  /// Lista comandos de la categoría Volumen
+  Future<void> _listCategoryVolume() async {
+    const text = '''
+Comandos de volumen:
+
+Subir volumen: Aumenta el volumen del asistente.
+
+Bajar volumen: Reduce el volumen del asistente.
+
+Volumen al máximo: Pone el volumen al 100 por ciento.
+
+Silencio: Pone el volumen al 0 por ciento.
+
+Volumen al 50 por ciento: Puedes decir cualquier número del 0 al 100.
+''';
+
+    await _ttsService.speak(text);
+  }
+
+  /// Lista comandos de la categoría Información
+  Future<void> _listCategoryInfo() async {
+    const text = '''
+Comandos de información:
+
+Qué hora es: Te dice la hora actual.
+
+Qué día es hoy: Te dice la fecha de hoy.
+
+Cuánta batería tengo: Te dice el nivel de batería del teléfono.
+''';
+
+    await _ttsService.speak(text);
+  }
+
+  /// Lista comandos de la categoría Ajustes
+  Future<void> _listCategorySettings() async {
+    const text = '''
+Comandos de ajustes:
+
+Alto contraste: Cambia los colores de la pantalla para mejor visibilidad.
+
+Cancelar: Detiene el reconocimiento de voz.
+
+Gracias: Cuando quieras agradecer.
+
+Adiós: Cuando termines de usar la aplicación.
+''';
+
+    await _ttsService.speak(text);
   }
 
   /// Inicia el timer de timeout (10 segundos)

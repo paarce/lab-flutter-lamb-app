@@ -30,8 +30,28 @@ enum CommandType {
   /// "tutorial" → Reproduce guía de uso de la app
   playTutorial,
 
-  /// "comandos disponibles" → Lista comandos por TTS
+  /// "comandos disponibles" → Intro de categorías por TTS
   listCommands,
+
+  /// "todos los comandos" → Lista completa de todos los comandos por TTS
+  listAllCommands,
+
+  // Categorías de comandos (para TTS por categoría)
+
+  /// "comandos de asistencia" → Lista comandos de asistencia
+  listCategoryAssistance,
+
+  /// "comandos de whatsapp" → Lista comandos de WhatsApp
+  listCategoryWhatsapp,
+
+  /// "comandos de volumen" → Lista comandos de volumen
+  listCategoryVolume,
+
+  /// "comandos de información" → Lista comandos de información del sistema
+  listCategoryInfo,
+
+  /// "comandos de ajustes" → Lista comandos de ajustes
+  listCategorySettings,
 
   /// "cancelar" → Detiene listening
   cancel,

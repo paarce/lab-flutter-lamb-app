@@ -272,43 +272,143 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
     );
   }
 
-  /// Construye la ayuda de comandos disponibles
+  /// Construye la ayuda de comandos disponibles agrupados por categoría
   Widget _buildCommandsHelp() {
     return Semantics(
-      label: 'Comandos disponibles',
+      label: 'Comandos disponibles organizados en 5 categorías',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Título principal
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Comandos disponibles:',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+
+          // Nota sobre cómo escuchar por categoría
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              'Di "comandos de" seguido de una categoría para escucharla.',
+              style: TextStyle(
+                fontSize: 18,
+                fontStyle: FontStyle.italic,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+          ),
+
+          // Categoría: Asistencia
+          _buildCategorySection(
+            icon: Icons.support_agent,
+            title: 'ASISTENCIA',
+            commands: [
+              ('Compartir pantalla', 'Ayuda remota de un familiar'),
+              ('Tutorial', 'Guía de uso de la app'),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Categoría: WhatsApp
+          _buildCategorySection(
+            icon: Icons.chat,
+            title: 'WHATSAPP',
+            commands: [
+              ('Abrir WhatsApp', 'Abre la aplicación de mensajes'),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Categoría: Volumen
+          _buildCategorySection(
+            icon: Icons.volume_up,
+            title: 'VOLUMEN',
+            commands: [
+              ('Subir / Bajar volumen', 'Ajusta el sonido'),
+              ('Volumen al máximo', 'Volumen al 100%'),
+              ('Silencio', 'Volumen al 0%'),
+              ('Volumen al 50%', 'Porcentaje específico'),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Categoría: Información
+          _buildCategorySection(
+            icon: Icons.info_outline,
+            title: 'INFORMACIÓN',
+            commands: [
+              ('Qué hora es', 'Hora actual'),
+              ('Qué día es hoy', 'Fecha actual'),
+              ('Cuánta batería', 'Nivel de batería'),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Categoría: Ajustes
+          _buildCategorySection(
+            icon: Icons.settings,
+            title: 'AJUSTES',
+            commands: [
+              ('Alto contraste', 'Cambia los colores'),
+              ('Cancelar', 'Detiene el reconocimiento'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Construye una sección de categoría con icono, título y comandos
+  Widget _buildCategorySection({
+    required IconData icon,
+    required String title,
+    required List<(String, String)> commands,
+  }) {
+    return Semantics(
+      container: true,
+      label: 'Categoría $title',
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
             width: 2,
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Comandos disponibles:',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+            // Encabezado con icono y título
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 28,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            _buildCommandItem('Solicitar ayuda', 'Genera un código para ayuda remota'),
-            _buildCommandItem('Abrir WhatsApp', 'Abre la aplicación WhatsApp'),
-            _buildCommandItem('Cambiar contraste', 'Cambia el tema de la aplicación'),
-            _buildCommandItem('Subir volumen', 'Aumenta el volumen del asistente'),
-            _buildCommandItem('Bajar volumen', 'Reduce el volumen del asistente'),
-            _buildCommandItem('Volumen al máximo', 'Establece el volumen al 100%'),
-            _buildCommandItem('Silencio', 'Establece el volumen al 0%'),
-            _buildCommandItem('Volumen al 50%', 'Establece un porcentaje específico'),
-            _buildCommandItem('Tutorial', 'Escucha una guía de uso de la app'),
-            _buildCommandItem('Comandos disponibles', 'Lista todos los comandos por voz'),
-            _buildCommandItem('Cancelar', 'Detiene el reconocimiento de voz'),
+            const SizedBox(height: 12),
+            // Comandos de la categoría
+            ...commands.map((cmd) => _buildCommandItem(cmd.$1, cmd.$2)),
           ],
         ),
       ),
@@ -318,16 +418,16 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   /// Construye un item de comando individual
   Widget _buildCommandItem(String command, String description) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             Icons.arrow_forward,
-            size: 24,
-            color: Theme.of(context).colorScheme.primary,
+            size: 22,
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,16 +435,16 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
                 Text(
                   command,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   description,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     color: Theme.of(context)
                         .colorScheme
                         .onSurface

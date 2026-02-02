@@ -1,9 +1,9 @@
 # 📋 MANUAL TEST CASES - Funcionalidad 4.1: Voice Command Infrastructure (Core)
 
-**Versión:** 1.2.0
+**Versión:** 1.3.0
 **Funcionalidad:** Sistema de comandos de voz con ElevenLabs STT + flutter_tts
 **Plataforma:** Android 7.0+ (API 24+)
-**Total Test Cases:** 20 (15 P0 + 5 P1)
+**Total Test Cases:** 25 (18 P0 + 7 P1)
 
 ---
 
@@ -20,6 +20,7 @@
 - [F. Feedback TTS](#-categoría-f-feedback-tts)
 - [G. Accesibilidad (TalkBack)](#-categoría-g-accesibilidad-talkback)
 - [H. Mejoras UX del Botón de Voz](#-categoría-h-mejoras-ux-del-botón-de-voz)
+- [I. Listado de Comandos por Categorías](#-categoría-i-listado-de-comandos-por-categorías)
 - [Resumen de Cobertura](#-resumen-de-cobertura)
 
 ---
@@ -106,7 +107,8 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 | F. Feedback TTS | 1 | 1 | 0 | ~5 min |
 | G. Accesibilidad (TalkBack) | 1 | 0 | 1 | ~10 min |
 | H. Mejoras UX del Botón de Voz | 4 | 3 | 1 | ~15 min |
-| **TOTAL** | **20** | **15** | **5** | **~95 min** |
+| I. Listado de Comandos por Categorías | 5 | 3 | 2 | ~20 min |
+| **TOTAL** | **25** | **18** | **7** | **~115 min** |
 
 ---
 
@@ -842,6 +844,179 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 
 ---
 
+## 📂 CATEGORÍA I: LISTADO DE COMANDOS POR CATEGORÍAS
+
+**Prerequisitos específicos:** VoiceCommandScreen funcionando, TTS service activo
+
+---
+
+### ✅ TC-VOICE-021: TTS intro de categorías
+
+**Prioridad:** P0
+**Objetivo:** Verificar que "comandos disponibles" reproduce el intro corto con las 5 categorías
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Mantener presionado botón >200ms
+3. Decir: "comandos disponibles"
+4. Observar respuesta TTS
+
+**Resultado Esperado:**
+- ✅ TTS reproduce intro corto (~30 segundos):
+  ```
+  Hay 5 categorías de comandos: Asistencia, WhatsApp, Volumen, Información y Ajustes.
+
+  Di "comandos de" seguido de una categoría para escuchar sus comandos.
+  Por ejemplo: di "comandos de asistencia" para conocer esos comandos.
+
+  O di "todos los comandos" para escuchar la lista completa.
+  ```
+- ✅ **En logs:**
+  ```
+  [VoiceCommandProvider] Listing command categories intro
+  ```
+- ✅ Mensaje es claro y comprensible
+- ✅ Duración razonable (~30s, no más de 45s)
+
+**Criterios de Aceptación:**
+- TTS intro es conciso (no abrumador)
+- Menciona las 5 categorías
+- Explica cómo acceder a más detalles
+
+---
+
+### ✅ TC-VOICE-022: TTS categoría específica (Asistencia)
+
+**Prioridad:** P0
+**Objetivo:** Verificar que "comandos de asistencia" reproduce solo los comandos de esa categoría
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Mantener presionado botón >200ms
+3. Decir: "comandos de asistencia"
+4. Observar respuesta TTS
+
+**Resultado Esperado:**
+- ✅ TTS reproduce detalle de categoría:
+  ```
+  Comandos de asistencia:
+
+  Compartir pantalla: Permite que un familiar vea tu pantalla y te ayude de forma remota.
+
+  Tutorial: Escucha una guía completa de uso de la aplicación.
+  ```
+- ✅ **En logs:**
+  ```
+  [VoiceCommandProvider] Listing assistance category commands
+  ```
+- ✅ Solo menciona comandos de asistencia (NO otros)
+
+**Criterios de Aceptación:**
+- TTS categoría específica es corto (~15-20s)
+- Solo menciona comandos relevantes
+- Descripciones son útiles para el usuario
+
+---
+
+### ✅ TC-VOICE-023: TTS lista completa
+
+**Prioridad:** P0
+**Objetivo:** Verificar que "todos los comandos" reproduce la lista completa
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Mantener presionado botón >200ms
+3. Decir: "todos los comandos"
+4. Observar respuesta TTS
+
+**Resultado Esperado:**
+- ✅ TTS reproduce lista completa (~90-120 segundos):
+  - Incluye TODAS las categorías
+  - Incluye TODOS los comandos
+- ✅ **En logs:**
+  ```
+  [VoiceCommandProvider] Listing all commands (full list)
+  ```
+- ✅ Pantalla permanece activa durante todo el TTS (wakelock)
+
+**Criterios de Aceptación:**
+- Lista completa incluye todos los comandos
+- TTS no se interrumpe
+- Wakelock activo durante reproducción
+
+---
+
+### ✅ TC-VOICE-024: UI muestra categorías agrupadas
+
+**Prioridad:** P1
+**Objetivo:** Verificar que la pantalla muestra los comandos agrupados por categoría
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Observar la sección "Comandos disponibles"
+3. Verificar estructura visual
+
+**Resultado Esperado:**
+- ✅ Se muestran 5 secciones de categorías:
+  - ASISTENCIA (icono support_agent)
+  - WHATSAPP (icono chat)
+  - VOLUMEN (icono volume_up)
+  - INFORMACIÓN (icono info_outline)
+  - AJUSTES (icono settings)
+- ✅ Cada sección tiene:
+  - Icono + título en color primario
+  - Lista de comandos con descripción breve
+  - Borde con color primario semitransparente
+- ✅ Nota visible: "Di 'comandos de' seguido de una categoría para escucharla"
+- ✅ **Semantics para TalkBack:**
+  - Container de cada categoría tiene label: "Categoría NOMBRE"
+  - Comandos individuales navegables
+
+**Criterios de Aceptación:**
+- UI es visualmente clara y organizada
+- Texto es legible (≥16sp descripción, ≥20sp comando)
+- TalkBack puede navegar todas las categorías
+- Iconos son reconocibles
+
+---
+
+### ✅ TC-VOICE-025: Categorías adicionales funcionan correctamente
+
+**Prioridad:** P1
+**Objetivo:** Verificar que todas las categorías de comandos funcionan
+
+**Pasos:**
+1. Abrir `VoiceCommandScreen`
+2. Probar cada categoría por separado:
+   - Decir: "comandos de whatsapp"
+   - Decir: "comandos de volumen"
+   - Decir: "comandos de información"
+   - Decir: "comandos de ajustes"
+
+**Resultado Esperado:**
+- ✅ **"comandos de whatsapp":**
+  - TTS menciona: "Abrir WhatsApp"
+  - Logs: `Listing WhatsApp category commands`
+
+- ✅ **"comandos de volumen":**
+  - TTS menciona: Subir/bajar volumen, máximo, silencio, porcentaje
+  - Logs: `Listing volume category commands`
+
+- ✅ **"comandos de información":**
+  - TTS menciona: Hora, fecha, batería
+  - Logs: `Listing info category commands`
+
+- ✅ **"comandos de ajustes":**
+  - TTS menciona: Alto contraste, cancelar, gracias, adiós
+  - Logs: `Listing settings category commands`
+
+**Criterios de Aceptación:**
+- 5/5 categorías funcionan correctamente
+- Cada categoría menciona solo sus comandos
+- Sin conflictos con comandos existentes (ej: "volumen" vs "comandos de volumen")
+
+---
+
 ## 📊 RESUMEN DE COBERTURA
 
 ### **Cobertura de Funcionalidades**
@@ -856,6 +1031,7 @@ adb install build/app/outputs/flutter-apk/app-debug.apk
 | Feedback TTS | TC-VOICE-015 | ✅ Cubierta |
 | Accesibilidad (TalkBack) | TC-VOICE-016 | ✅ Cubierta |
 | Mejoras UX del botón de voz | TC-VOICE-017, TC-VOICE-018, TC-VOICE-019, TC-VOICE-020 | ✅ Cubierta |
+| Listado de comandos por categorías | TC-VOICE-021, TC-VOICE-022, TC-VOICE-023, TC-VOICE-024, TC-VOICE-025 | ✅ Cubierta |
 
 ### **Comandos MVP Soportados**
 
@@ -998,8 +1174,8 @@ adb shell dumpsys package com.accessibilityapp.lamb | grep RECORD_AUDIO
 
 ---
 
-**Versión:** 1.2.0
-**Última actualización:** 26 ene 2026
-**Autor:** Claude (Funcionalidad 4.1 Implementation + TODOs completados + Mejoras UX)
+**Versión:** 1.3.0
+**Última actualización:** 27 ene 2026
+**Autor:** Claude (Funcionalidad 4.1 Implementation + TODOs completados + Mejoras UX + Listado por Categorías)
 **Stack:** Flutter + ElevenLabs STT + flutter_tts + Provider + ThemeProvider + wakelock_plus + haptic_feedback
-**Nueva Categoría:** H. Mejoras UX del Botón de Voz (4 test cases: TC-VOICE-017 a TC-VOICE-020)
+**Nueva Categoría:** I. Listado de Comandos por Categorías (5 test cases: TC-VOICE-021 a TC-VOICE-025)

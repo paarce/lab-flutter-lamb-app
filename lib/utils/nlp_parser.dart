@@ -124,6 +124,43 @@ class NLPParser {
     'comandos',
   ];
 
+  // Lista completa de comandos
+  static const _listAllCommandsKeywords = [
+    'todos los comandos',
+    'lista completa',
+    'todos',
+  ];
+
+  // Categorías de comandos (prefijo "comandos de" para evitar conflictos)
+  static const _categoryAssistanceKeywords = [
+    'comandos de asistencia',
+    'comandos asistencia',
+  ];
+
+  static const _categoryWhatsappKeywords = [
+    'comandos de whatsapp',
+    'comandos whatsapp',
+  ];
+
+  static const _categoryVolumeKeywords = [
+    'comandos de volumen',
+    'comandos volumen',
+  ];
+
+  static const _categoryInfoKeywords = [
+    'comandos de información',
+    'comandos información',
+    'comandos de info',
+    'comandos info',
+  ];
+
+  static const _categorySettingsKeywords = [
+    'comandos de ajustes',
+    'comandos ajustes',
+    'comandos de configuración',
+    'comandos configuración',
+  ];
+
   // Sistema (NUEVO)
   static const _timeKeywords = [
     'qué hora es',
@@ -280,7 +317,48 @@ class NLPParser {
       );
     }
 
-    // Prioridad 7: Listar comandos
+    // Prioridad 7: Listar comandos por categoría (antes de listCommands genérico)
+    // 7a: Todos los comandos (lista completa)
+    if (_matchesAny(normalized, _listAllCommandsKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listAllCommands,
+        originalText: recognizedText,
+      );
+    }
+
+    // 7b: Categorías específicas (antes de "comandos" genérico)
+    if (_matchesAny(normalized, _categoryAssistanceKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listCategoryAssistance,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _categoryWhatsappKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listCategoryWhatsapp,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _categoryVolumeKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listCategoryVolume,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _categoryInfoKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listCategoryInfo,
+        originalText: recognizedText,
+      );
+    }
+    if (_matchesAny(normalized, _categorySettingsKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.listCategorySettings,
+        originalText: recognizedText,
+      );
+    }
+
+    // 7c: Intro de categorías (genérico)
     if (_matchesAny(normalized, _listCommandsKeywords)) {
       return VoiceCommand.now(
         type: CommandType.listCommands,
