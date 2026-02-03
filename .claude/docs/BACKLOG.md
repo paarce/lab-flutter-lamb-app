@@ -1,7 +1,8 @@
 # BACKLOG - App de Accesibilidad para Adultos Mayores
 
 **Fecha de creación:** 24 dic 2025
-**Versión:** 1.0
+**Última actualización:** 04 feb 2026
+**Versión:** 2.2
 **Sprint objetivo:** MVP (Semanas 1-6)
 
 ---
@@ -571,9 +572,95 @@ Para usar la app de forma más completa sin necesidad de acceder a configuracion
 
 ---
 
-### FUNCIONALIDAD 4.6: Firebase Analytics (Tracking de Comandos)
+### FUNCIONALIDAD 4.6: Listado de Comandos por Categorías ✅
 
-**Prioridad: P2 (Post-MVP - v1.2)** *(Renumerado desde 4.5)*
+**Prioridad: P1 (Alta - MVP)** → **COMPLETADO 04 feb 2026**
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero escuchar los comandos disponibles organizados por categoría
+Para entender mejor qué puedo hacer y no sentirme abrumado con una lista larga
+```
+
+#### Criterios de Aceptación Funcional
+- [x] **Comando intro de categorías:**
+  - [x] "comandos disponibles" / "qué puedo hacer" → Intro corto (~30s) mencionando 5 categorías
+  - [x] Explica cómo acceder a cada categoría: "Di 'comandos de' seguido de una categoría"
+- [x] **Comandos por categoría específica:**
+  - [x] "comandos de asistencia" → Lista: compartir pantalla, tutorial
+  - [x] "comandos de whatsapp" → Lista: abrir whatsapp
+  - [x] "comandos de volumen" → Lista: subir/bajar, máximo, silencio, porcentaje
+  - [x] "comandos de información" → Lista: hora, fecha, batería
+  - [x] "comandos de ajustes" → Lista: alto contraste, cancelar, gracias, adiós
+- [x] **Lista completa:**
+  - [x] "todos los comandos" / "lista completa" → Lista completa de todos los comandos (~90-120s)
+- [x] **UI agrupada por categorías:**
+  - [x] 5 secciones con iconos distintivos (support_agent, chat, volume_up, info_outline, settings)
+  - [x] Cada categoría con borde coloreado y título visible
+  - [x] Nota informativa sobre cómo escuchar por categoría
+
+#### Criterios de Aceptación Técnico
+- [x] **6 Nuevos CommandType:**
+  - [x] `listAllCommands` → Lista completa
+  - [x] `listCategoryAssistance` → Categoría asistencia
+  - [x] `listCategoryWhatsapp` → Categoría WhatsApp
+  - [x] `listCategoryVolume` → Categoría volumen
+  - [x] `listCategoryInfo` → Categoría información
+  - [x] `listCategorySettings` → Categoría ajustes
+- [x] **7 Métodos TTS en VoiceCommandProvider:**
+  - [x] `_listAvailableCommands()` → Intro corto (refactorizado)
+  - [x] `_listAllCommands()` → Lista completa
+  - [x] `_listCategoryAssistance()` → Solo asistencia
+  - [x] `_listCategoryWhatsapp()` → Solo WhatsApp
+  - [x] `_listCategoryVolume()` → Solo volumen
+  - [x] `_listCategoryInfo()` → Solo información
+  - [x] `_listCategorySettings()` → Solo ajustes
+- [x] **NLP Parser:**
+  - [x] Keywords para cada categoría con prioridad correcta
+  - [x] "comandos de X" procesado ANTES de "comandos" genérico
+  - [x] "todos los comandos" procesado ANTES de "comandos" genérico
+- [x] **LLM System Prompt:**
+  - [x] 7 nuevos tipos de comando documentados
+  - [x] Ejemplos de parsing para categorías
+- [x] **UI Rediseñada:**
+  - [x] `_buildCommandsHelp()` refactorizado con categorías
+  - [x] `_buildCategorySection()` widget reutilizable
+  - [x] Iconos y colores distintivos por categoría
+  - [x] Semantics container para cada categoría (TalkBack)
+
+#### Archivos Modificados (6)
+- [x] `lib/models/command.dart` - +6 CommandType enums
+- [x] `lib/prompts/llm_system_prompt.dart` - Nuevos tipos y ejemplos
+- [x] `lib/providers/voice_command_provider.dart` - +7 métodos TTS + switch cases
+- [x] `lib/screens/voice_command_screen.dart` - UI categorizada con iconos
+- [x] `lib/utils/nlp_parser.dart` - +6 keyword sets con prioridades
+- [x] `.claude/docs/manual-test-cases/FUNCIONALIDAD_4.1_COMANDOS_DE_VOZ.md` - +5 test cases
+
+#### Test Cases (5 nuevos)
+- [x] TC-VOICE-021: TTS intro de categorías
+- [x] TC-VOICE-022: TTS categoría específica (Asistencia)
+- [x] TC-VOICE-023: TTS lista completa
+- [x] TC-VOICE-024: UI muestra categorías agrupadas
+- [x] TC-VOICE-025: Categorías adicionales funcionan correctamente
+
+#### Estatus 4.6
+- [x] Diseño completado
+- [x] Implementación
+- [x] Testing documentado
+- [x] **COMPLETADO** ✅ (04 feb 2026)
+
+#### Notas de Implementación
+- **UX mejorada:** Intro corto evita abrumar al usuario
+- **Escalable:** Fácil agregar nuevas categorías
+- **Consistente:** Misma estructura en TTS y UI
+- **Accesible:** Semantics container en cada categoría
+
+---
+
+### FUNCIONALIDAD 4.7: Firebase Analytics (Tracking de Comandos)
+
+**Prioridad: P2 (Post-MVP - v1.2)** *(Renumerado desde 4.6)*
 
 #### Historia de Usuario
 ```
@@ -602,7 +689,7 @@ Para mejorar el parser y priorizar nuevas funcionalidades
 - `lib/services/analytics_service.dart` - Wrapper de Firebase Analytics
 - `lib/models/command_analytics.dart` - Modelo para eventos
 
-#### Estatus 4.6
+#### Estatus 4.7
 - [ ] Por hacer (Post-MVP v1.2)
 - [ ] Firebase Analytics setup
 - [ ] Implementación
@@ -915,11 +1002,12 @@ Para poder usar todas las funcionalidades sin sentirme perdido en configuracione
 | **2. WebRTC Control Remoto** | **Crítico (MVP core)** | **Muy Alta** | **P0** | ✅ Listo | 2-3 semanas |
 | **3. Interfaz Accesible Básica** | Muy Alto (usabilidad) | Baja-Media | **P0** | ✅ Listo | 1-2 semanas |
 | **4.1 Voice Commands (Core)** | Alto (accesibilidad) | Media | **P1** | ✅ Listo | 1 semana |
-| **4.2 System Actions** | Medio (conveniencia) | Baja | **P1** | 🔜 Pendiente | 0.5 semana |
+| **4.2 System Actions** | Medio (conveniencia) | Baja | **P1** | ✅ Listo | 0.5 semana |
 | **4.3 Assistance Actions** | Alto (UX crítica) | Media | **P1** | ✅ Listo | 1 semana |
 | **4.4 LLM Enhancement** | Medio (mejora) | Alta | **P2** | ✅ Listo | 1-2 semanas |
 | **4.5 System + Social + Prompt** | Medio (mejora) | Media | **P1** | ✅ Listo (25 ene) | 2 horas |
-| **4.6 Analytics** | Bajo (monitoreo) | Baja | **P2** | Post-MVP v1.2 | 0.5 semana |
+| **4.6 Command Categories** | Alto (UX mejora) | Baja | **P1** | ✅ Listo (04 feb) | 3 horas |
+| **4.7 Analytics** | Bajo (monitoreo) | Baja | **P2** | Post-MVP v1.2 | 0.5 semana |
 | **5. WhatsApp Integration** | Medio (funcionalidad) | Baja-Media | **P1** | 🔜 Pendiente | 1 semana |
 | **6.1 Image Description** | Alto (innovación) | Alta | **P3** | v2.0 | 2 semanas |
 | **6.2 OCR Text Reading** | Alto (innovación) | Media | **P3** | v2.0 | 1 semana |
@@ -1877,6 +1965,7 @@ Durante las pruebas del TC-HP-004, se identificó que aunque el código se anunc
 
 | Fecha | Versión | Cambios |
 |-------|---------|---------|
+| 04 feb 2026 | 2.2 | **FUNCIONALIDAD 4.6 completada:** Listado de Comandos por Categorías. Incluye: 6 nuevos CommandType para categorías (listAllCommands, listCategoryAssistance/Whatsapp/Volume/Info/Settings), 7 métodos TTS en VoiceCommandProvider, UI rediseñada con iconos por categoría, NLP parser con prioridades para categorías, 5 test cases (TC-VOICE-021 a 025). Analytics renumerado a 4.7. Matriz de prioridades actualizada con 4.2 y 4.6 como completados. |
 | 25 ene 2026 | 2.1 | **FUNCIONALIDAD 4.5 completada:** Comandos de Sistema + Respuestas Sociales + System Prompt Externalizado. Incluye: getTime/getDate/getBatteryLevel (Kotlin), thankYou/goodbye, conversationRejected, contador unknown con ayuda proactiva, prompt externalizado en `/lib/prompts/`, 6 nuevos CommandType, 24 test cases. Analytics renumerado a 4.6. |
 | 18 ene 2026 | 2.0 | **REORGANIZACIÓN MAYOR:** Funcionalidad 4 dividida en subfuncionalidades granulares (4.1-4.5). Nueva Funcionalidad 6 (Visual Assistant) con ML/AI agregada. Arquitectura de comandos actualizada con CommandCategory + Parser Híbrido. UX simplificada con FAB push-to-talk. Gestión de Permisos renumerada como Funcionalidad 7. |
 | 18 ene 2026 | 1.3 | **FUNCIONALIDAD 4.1 completada:** Voice Command Infrastructure (Core) implementado con ElevenLabs STT + flutter_tts. Incluye: VoiceCommand model, NLPParser, VoiceCommandProvider, VoiceCommandScreen, WhatsAppService platform channel, unit tests. Estatus: En desarrollo. |
@@ -1887,7 +1976,8 @@ Durante las pruebas del TC-HP-004, se identificó que aunque el código se anunc
 ---
 
 **Próximos pasos:**
-1. Revisar y aprobar este backlog
-2. Iniciar desarrollo siguiendo prioridades P0
-3. Actualizar estatus de cada funcionalidad conforme avanza el desarrollo
-4. Sesión de planning semanal para ajustar estimaciones según progreso real
+1. ✅ Funcionalidades P0 completadas (Setup, WebRTC, Interfaz Accesible)
+2. ✅ Funcionalidades de voz 4.1-4.6 completadas
+3. 🔜 **SIGUIENTE:** Funcionalidad 5 - WhatsApp Integration (deep links + chat por nombre)
+4. 🔜 Funcionalidad 7 - Gestión de Permisos (tutorial de onboarding)
+5. Testing con usuarios reales antes de release
