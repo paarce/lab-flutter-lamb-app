@@ -5,12 +5,14 @@
 /// 2. Firebase → Sincronización de datos
 /// 3. ElevenLabs → Comunicación de audio
 /// 4. WebRTC → Control remoto
-/// 5. Network → Conectividad general
+/// 5. LLM → Parsing de comandos (fallback graceful)
+/// 6. Network → Conectividad general
 enum ErrorCategory {
   platformChannel, // Kotlin/Android errors
   firebase, // Firestore/Authentication
   elevenLabs, // STT/TTS API
   webRTC, // Remote control
+  llm, // LLM parsing (Feature 4.4)
   network, // Internet connectivity
   unknown, // No clasificado
 }
@@ -27,6 +29,8 @@ extension ErrorCategoryX on ErrorCategory {
         return 'Error de Audio';
       case ErrorCategory.webRTC:
         return 'Error de Conexión Remota';
+      case ErrorCategory.llm:
+        return 'Error del Asistente';
       case ErrorCategory.network:
         return 'Error de Conexión';
       case ErrorCategory.unknown:

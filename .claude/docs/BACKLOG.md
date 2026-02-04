@@ -1,7 +1,8 @@
 # BACKLOG - App de Accesibilidad para Adultos Mayores
 
 **Fecha de creación:** 24 dic 2025
-**Versión:** 1.0
+**Última actualización:** 04 feb 2026
+**Versión:** 2.2
 **Sprint objetivo:** MVP (Semanas 1-6)
 
 ---
@@ -223,112 +224,497 @@ Para poder usar la aplicación de forma independiente sin necesidad de ver clara
 
 ---
 
-### FUNCIONALIDAD 4: Integración ElevenLabs STT/TTS Básica
+### FUNCIONALIDAD 4: Sistema de Comandos de Voz (Voice Commands)
+
+**Visión General:**
+Sistema completo de interacción por voz que permite a usuarios con baja visión controlar la app mediante comandos naturales. Implementado en fases incrementales desde infraestructura básica hasta asistencia inteligente con LLM.
+
+**Arquitectura de Comandos:**
+```dart
+enum CommandCategory {
+  system,      // Acciones de sistema (contraste, volumen, navegación)
+  assistance,  // Ayuda remota, tutoriales
+  whatsapp,    // Operaciones de WhatsApp
+  visual,      // Asistente visual (descripción de imágenes, OCR)
+}
+
+class VoiceCommand {
+  CommandCategory category;
+  String action;           // ej: "toggle_contrast", "request_help", "open_chat"
+  Map<String, dynamic> params;  // ej: {"contact": "María"}
+}
+```
+
+**Parser Híbrido:**
+1. Keywords locales (latencia <50ms, offline) → 80% casos
+2. LLM local (si keywords fallan, latencia ~500ms) → 15% casos
+3. LLM cloud (contexto complejo, latencia ~2s) → 5% casos
+
+**UX Simplificada:**
+- ✅ FAB (FloatingActionButton) push-to-talk en HomeScreen (siempre accesible)
+- ✅ Overlay modal durante grabación (feedback visual)
+- ❌ NO pantalla dedicada VoiceCommandScreen (sobrecarga cognitiva)
+
+---
+
+### FUNCIONALIDAD 4.1: Voice Command Infrastructure (Core)
 
 #### Historia de Usuario
 ```
 Como adulto mayor con baja visión
-Quiero dar comandos de voz y recibir respuestas audibles
+Quiero presionar un botón de micrófono y dar comandos simples
 Para interactuar con la aplicación sin necesidad de leer texto en pantalla
 ```
 
 #### Criterios de Aceptación Funcional
-- [ ] El usuario puede presionar botón de micrófono grande y dar comando de voz
-- [ ] El comando es reconocido en <2 segundos con latencia de 150-500ms
-- [ ] La transcripción del comando se muestra en pantalla (texto grande, 28sp)
-- [ ] Feedback audible confirma cada acción ejecutada (ej: "Abriendo WhatsApp")
-- [ ] Si ElevenLabs falla, el sistema hace fallback automático a Android SpeechRecognizer
-- [ ] Indicador visual claro cuando está escuchando (animación de micrófono)
-- [ ] El usuario puede cancelar grabación con botón o "cancelar" por voz
-- [ ] Los mensajes de voz son claros, cortos (máximo 2 oraciones) y en lenguaje simple
-- [ ] Reconoce comandos básicos para MVP:
-  - "Solicitar ayuda" / "Necesito ayuda" → Genera código sesión remota
-  - "Abrir WhatsApp" → Abre WhatsApp
-  - "Alto contraste" / "Activar alto contraste" → Cambia tema
-- [ ] Manejo de errores se anuncia en voz: "No te escuché bien. Intenta de nuevo"
+- [x] FAB push-to-talk siempre visible en HomeScreen (esquina inferior derecha)
+- [x] Overlay modal aparece al presionar FAB con indicador de grabación
+- [x] Transcripción en tiempo real se muestra en overlay (texto grande, 28sp)
+- [x] Feedback audible confirma cada acción (TTS con flutter_tts)
+- [x] Parser híbrido: keywords locales primero, fallback a LLM después
+- [ ] Fallback a Android SpeechRecognizer si ElevenLabs falla (4.1.1 - v1.1)
+- [x] Usuario puede cancelar con botón X en overlay o diciendo "cancelar"
+- [x] Timeout de 10 segundos con reset en cada palabra reconocida
+- [x] Comandos básicos reconocidos e implementados:
+  - Sistema: "alto contraste" ✅ (toggle de tema dinámico)
+  - Asistencia: "solicitar ayuda" ✅ (navegación a RemoteControlHostScreen)
+  - WhatsApp: "abrir whatsapp" ⏳ (reconocido, integración pendiente Feature 5)
 
 #### Criterios de Aceptación Técnico
-- [ ] Implementado con ElevenLabs Scribe v2 (WebSocket API) como STT principal
-- [ ] ElevenLabs TTS (REST API) para síntesis de voz
-- [ ] Fallback a Android SpeechRecognizer cuando:
+- [x] Implementado con ElevenLabs Scribe v2 (WebSocket API) como STT principal
+- [x] flutter_tts (motor nativo) para síntesis de voz (cambio: no ElevenLabs TTS)
+- [ ] Fallback a Android SpeechRecognizer cuando: (v1.1 - diseñado pero no implementado)
   - ElevenLabs API retorna error 429 (límite excedido)
   - No hay conexión a internet
   - API key inválida o expirada
-- [ ] API key almacenada en secrets.dart (gitignored)
-- [ ] WebSocket connection a wss://api.elevenlabs.io/v1/speech-to-text/realtime
-- [ ] Voice ID configurado en constants.dart
-- [ ] Audio del micrófono capturado con permission RECORD_AUDIO
-- [ ] Parser NLP simple (utils/nlp_parser.dart) para extraer intención y parámetros
-- [ ] Audio TTS reproducido con audioplayers package
-- [ ] Timeout de escucha: 10 segundos sin hablar → auto cancelar
-- [ ] Logging de errores de API para debugging
+- [x] API key almacenada en secrets.dart (gitignored)
+- [x] WebSocket connection a wss://api.elevenlabs.io/v1/speech-to-text/realtime
+- [x] Audio del micrófono capturado con permission RECORD_AUDIO
+- [x] Parser NLP simple (utils/nlp_parser.dart) para extraer intención basado en keywords
+- [x] Audio TTS reproducido con flutter_tts (motor nativo Android/iOS)
+- [x] Timeout de escucha: 10 segundos, reseteado en cada palabra reconocida
+- [x] Heurística de 3 palabras para procesar comando rápidamente
+- [x] Logging estructurado con developer.log() en puntos clave
+- [x] State management con VoiceCommandProvider (ChangeNotifier)
 
 #### Edge Cases y Manejo de Errores
-- ¿Qué pasa si no hay conexión a internet?
-  - Usar Android SpeechRecognizer como fallback automático
-  - Mostrar advertencia: "Modo sin conexión. Reconocimiento de voz básico activado"
-- ¿Qué pasa si el usuario niega permiso de micrófono?
-  - Tutorial visual mostrando cómo otorgar permiso
-  - TTS: "Para usar comandos de voz, necesito permiso del micrófono"
-  - Botón directo a configuración de permisos
-- ¿Qué pasa si ElevenLabs retorna límite excedido (429)?
-  - Fallback automático a Android SpeechRecognizer
-  - Logging del evento para monitoreo
-  - No mostrar error al usuario (transición transparente)
-- ¿Qué pasa si el comando no se entiende?
-  - TTS: "No entendí el comando. Intenta decir: solicitar ayuda, abrir WhatsApp"
-  - Mostrar lista de comandos disponibles en pantalla
-- ¿Qué pasa si hay mucho ruido ambiental?
-  - Intentar procesar de todas formas (ElevenLabs es robusto)
-  - Si falla múltiples veces: "Hay mucho ruido. Acércate más al micrófono"
-- ¿Qué pasa si el usuario habla otro idioma o con acento fuerte?
-  - ElevenLabs soporta español con buenos acentos
-  - Si falla consistentemente: sugerir modo botones en vez de voz
+- ✅ ¿Qué pasa si no hay conexión a internet?
+  - ErrorHandlerService muestra error accesible + TTS
+  - Futuro (v1.1): Fallback a Android SpeechRecognizer
+- ✅ ¿Qué pasa si el usuario niega permiso de micrófono?
+  - Implementado: Check en initState() de VoiceCommandScreen
+  - ErrorHandlerService muestra diálogo accesible
+  - TTS anuncia error de permiso
+- ✅ ¿Qué pasa si ElevenLabs retorna error?
+  - ErrorHandlerService maneja error centralizado
+  - Logging con developer.log()
+  - Futuro (v1.1): Fallback automático a Android SpeechRecognizer
+- ✅ ¿Qué pasa si el comando no se entiende?
+  - TTS: "No entendí el comando. Intenta de nuevo."
+  - Lista de comandos disponibles visible en pantalla cuando idle
+  - NLPParser retorna CommandType.unknown
+- ✅ ¿Qué pasa si el usuario dice "cancelar"?
+  - Reconocido con prioridad alta en NLPParser
+  - Detiene listening inmediatamente
+  - TTS anuncia: "Cancelado"
+- ✅ ¿Qué pasa si timeout de 10s se cumple?
+  - Timer se resetea en cada palabra reconocida
+  - Si 10s sin palabras: detiene listening automáticamente
+  - TTS anuncia: "Tiempo agotado"
 
 #### Dependencias Técnicas
 - **Permisos requeridos:**
-  - android.permission.RECORD_AUDIO
-  - android.permission.INTERNET
+  - android.permission.RECORD_AUDIO ✅
+  - android.permission.INTERNET ✅
 - **APIs/SDKs necesarios:**
-  - ElevenLabs Scribe v2 API (WebSocket)
-  - ElevenLabs TTS API (REST)
-  - web_socket_channel: ^2.4.0
-  - http: ^1.1.0 o dio: ^5.4.0
-  - audioplayers package
-  - Android SpeechRecognizer (fallback)
+  - ElevenLabs Scribe v2 API (WebSocket) ✅
+  - flutter_tts: ^0.0.45 (motor nativo para TTS) ✅
+  - web_socket_channel: ^2.4.0 ✅
+  - permission_handler: ^11.1.0 ✅
+  - provider: ^6.1.1 (state management) ✅
+  - Android SpeechRecognizer (fallback v1.1) ⏳
 - **Servicios de terceros:**
-  - ElevenLabs API (requiere API key válida)
-  - Verificar límites de suscripción actual
+  - ElevenLabs API (requiere API key válida en secrets.dart) ✅
 
-#### Estatus
-- [ ] Por hacer
-- [ ] En desarrollo
-- [ ] En pruebas
-- [ ] Listo
+#### Archivos Implementados (4.1 Core)
+- ✅ `lib/models/command.dart` - Modelo base VoiceCommand con category + action + params
+- ✅ `lib/utils/nlp_parser.dart` - Parser híbrido keywords → LLM
+- ✅ `lib/providers/voice_command_provider.dart` - State management con timeout
+- ✅ `lib/screens/voice_command_screen.dart` - **DEPRECADO** (reemplazar con FAB + overlay)
+- ✅ `lib/services/elevenlabs_service.dart` - STT via WebSocket
+- ✅ `lib/services/tts/` - TTS abstraction con flutter_tts
+- ✅ `test/utils/nlp_parser_test.dart` - Unit tests del parser
+
+#### Refactorización Pendiente (UX Simplificada)
+- ⏳ Reemplazar VoiceCommandScreen con FAB en HomeScreen
+- ⏳ Crear VoiceOverlay widget modal para feedback de grabación
+- ⏳ Migrar lógica de VoiceCommandProvider a nueva UX
+
+#### Estatus 4.1
+- [x] Core implementado (18 ene 2026)
+- [ ] Refactorización UX a FAB (pendiente)
+- [ ] Testing con usuarios reales
 
 ---
 
-### FUNCIONALIDAD 5: WhatsApp Básico mediante Deep Links
+### FUNCIONALIDAD 4.2: System Actions (Comandos de Sistema) ✅
+
+**Completado en 4.1 (18 ene 2026) y 4.5 (25 ene 2026)**
 
 #### Historia de Usuario
 ```
 Como adulto mayor con baja visión
-Quiero abrir WhatsApp y opcionalmente abrir un chat específico mediante comando de voz o botón
-Para comunicarme con mis contactos sin necesidad de buscar en la aplicación
+Quiero controlar configuraciones de la app por voz
+Para ajustar contraste, volumen y navegar sin tocar la pantalla
 ```
 
 #### Criterios de Aceptación Funcional
-- [ ] El usuario puede abrir WhatsApp presionando botón grande o diciendo "Abrir WhatsApp"
-- [ ] Lista de contactos frecuentes (configurables) con botones grandes (80dp altura)
-- [ ] Al presionar contacto, se abre WhatsApp en el chat específico (si tiene número guardado)
-- [ ] Si WhatsApp no está instalado, muestra mensaje claro: "WhatsApp no está instalado"
-- [ ] Feedback audible confirma acción: "Abriendo WhatsApp de María"
-- [ ] Si no hay número guardado para contacto, solo abre WhatsApp (sin chat específico)
-- [ ] El familiar puede ayudar remotamente a configurar contactos frecuentes
-- [ ] Comandos de voz reconocidos:
-  - "Abrir WhatsApp" → Abre la app
-  - "Abrir WhatsApp de [nombre]" → Abre chat si tiene número guardado
-- [ ] Máximo 6-8 contactos frecuentes visibles (scroll si hay más)
+- [x] "Alto contraste" / "Activar contraste" → Cambia tema a high contrast (4.1)
+- [x] "Subir volumen" / "Bajar volumen" → Ajusta volumen TTS (4.1)
+- [x] "Volumen al máximo" / "Silencio" → Ajusta volumen absoluto (4.1)
+- [x] "Volumen al X por ciento" → Ajusta volumen específico (4.1)
+- [x] Feedback TTS confirma cada acción de sistema (4.1)
+
+#### Criterios de Aceptación Técnico
+- [x] ThemeProvider para gestionar cambio de tema (4.1)
+- [x] Integración con TTSService para ajuste de volumen (4.1)
+- [x] Keywords en NLPParser con prioridades (4.1)
+
+#### Archivos Creados
+- [x] `lib/providers/theme_provider.dart` (4.1)
+- [x] `lib/models/app_theme.dart` (4.1)
+- [x] Actualizado `lib/utils/nlp_parser.dart` (4.1)
+
+#### Estatus 4.2
+- [x] **COMPLETADO** ✅ (funcionalidad integrada en 4.1 y 4.5)
+
+---
+
+### FUNCIONALIDAD 4.3: Assistance Actions (Comandos de Ayuda) ✅
+
+**Completado en 4.1 (18 ene 2026)**
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero solicitar ayuda remota por voz
+Para que mi familiar se conecte sin necesidad de navegar manualmente
+```
+
+#### Criterios de Aceptación Funcional
+- [x] "Solicitar ayuda" / "Necesito ayuda" → Navega a RemoteControlHostScreen (4.1)
+- [x] "Tutorial" / "Ayuda" → Reproduce tutorial de voz sobre cómo usar la app (4.1)
+- [x] "¿Qué puedo decir?" / "Comandos disponibles" → Lista comandos disponibles por voz (4.1)
+- [x] Tutorial de voz guiado con pausas entre instrucciones (4.1)
+- [x] Lista de comandos actualizada con nuevas funcionalidades (4.5)
+
+#### Criterios de Aceptación Técnico
+- [x] CommandType.requestHelp → Reproduce tutorial (4.1)
+- [x] CommandType.playTutorial → Reproduce tutorial (4.1)
+- [x] CommandType.listCommands → Lista comandos (4.1)
+- [x] CommandType.shareScreen → Navegación a RemoteControlHostScreen (4.1)
+- [x] TTS dinámico para tutorial y lista de comandos (4.1)
+- [x] Tutorial actualizado con comandos de sistema (4.5)
+- [x] Lista actualizada con secciones Sistema y Social (4.5)
+
+#### Archivos Modificados
+- [x] `lib/providers/voice_command_provider.dart` - Tutorial y lista de comandos (4.1, 4.5)
+- [x] `lib/utils/nlp_parser.dart` - Keywords de ayuda (4.1)
+
+#### Estatus 4.3
+- [x] **COMPLETADO** ✅ (funcionalidad integrada en 4.1)
+
+---
+
+### FUNCIONALIDAD 4.4: LLM Remote Enhancement (Mejora con LLM Cloud) ✅
+
+**Prioridad: P2 (Post-MVP - v1.1)** → **COMPLETADO 24 ene 2026**
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero dar comandos más naturales y conversacionales
+Para no tener que memorizar palabras clave exactas
+```
+
+#### Criterios de Aceptación Funcional
+- [x] Parser híbrido usa LLM cloud cuando keywords locales fallan
+- [x] LLM extrae intención + parámetros de frases complejas
+  - Ejemplo: "Quiero hablar con mi hija María" → {type: open_chat, params: {contact: "maría"}}
+  - Ejemplo: "necesito que alguien me ayude" → {type: request_help, params: null}
+- [ ] LLM mantiene contexto de sesión (conversación multi-turno) → **Deferred to v1.2**
+- [x] Latencia objetivo: <3 segundos para comandos complejos
+- [x] Fallback a keywords si LLM falla o timeout
+
+#### Criterios de Aceptación Técnico
+- [x] Integración con Claude API (Anthropic) - Claude 3 Haiku
+- [x] Prompt engineering para extraer structured commands
+- [x] Cache de respuestas LLM para comandos frecuentes (TTL 5 min, max 100 entradas)
+- [x] Rate limiting y manejo de cuotas de API (timeout 3s, manejo 429)
+- [x] Logging de comandos no resueltos para mejorar prompts
+
+#### Archivos Creados
+- [x] `lib/services/llm_parser_service.dart` - Cliente Claude API (~180 líneas)
+- [x] `lib/services/llm_command_cache.dart` - Cache en memoria (~85 líneas)
+- [x] Actualizado `lib/providers/voice_command_provider.dart` con flujo híbrido
+- [x] `.claude/docs/manual-test-cases/FUNCIONALIDAD_4.4_LLM_PARSER.md` - 18 test cases
+
+#### Archivos Modificados
+- [x] `lib/config/secrets.example.dart` - Claude API key
+- [x] `lib/main.dart` - LLMParserService provider injection
+- [x] `lib/errors/error_codes.dart` - Códigos LLM
+- [x] `lib/errors/error_category.dart` - Categoría LLM
+- [x] `lib/utils/error_messages.dart` - Mensajes LLM
+
+#### Estatus 4.4
+- [x] Por hacer (Post-MVP)
+- [x] Diseño de prompts
+- [x] Implementación
+- [x] Testing (18 test cases documentados)
+- [x] **COMPLETADO** ✅
+
+#### Notas de Implementación
+- **Modelo:** Claude 3 Haiku (rápido y económico)
+- **Costo:** ~$0.0001 por comando (~$6/mes para 1000 usuarios)
+- **Latencia promedio:** 300-1500ms (depende de internet)
+- **Cache hit:** <50ms (10-30x más rápido)
+- **Variaciones reconocidas:**
+  - Request Help: "necesito ayuda", "ayúdenme", "requiero asistencia"
+  - Toggle Contrast: "ponme los colores más fuertes", "aumenta el contraste"
+  - Volume: "sube el sonido", "baja un poco", "ponlo al máximo"
+  - Open WhatsApp: "hablar con María", "llama a Juan", "escríbele a Pedro"
+
+---
+
+### FUNCIONALIDAD 4.5: Comandos de Sistema + Respuestas Sociales + System Prompt Externalizado ✅
+
+**Prioridad: P1 (Alta - MVP)** → **COMPLETADO 25 ene 2026**
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero obtener información del sistema (hora, fecha, batería) y dar comandos sociales básicos por voz
+Para usar la app de forma más completa sin necesidad de acceder a configuraciones
+```
+
+#### Criterios de Aceptación Funcional
+- [x] **Comandos de Sistema:**
+  - [x] "Qué hora es" → Anuncia hora en formato accesible ("2:30 de la tarde")
+  - [x] "Qué día es hoy" → Anuncia fecha completa ("25 de enero de 2026")
+  - [x] "Cuánta batería tengo" → Anuncia nivel de batería ("75 por ciento")
+- [x] **Respuestas Sociales (LIMITADO - solo 2):**
+  - [x] "Gracias" → Responde "De nada, para eso estoy"
+  - [x] "Adiós" → Responde "Hasta luego"
+- [x] **Rechazo de Conversaciones:**
+  - [x] Saludos sin objetivo ("hola", "buenos días") → Rechaza amablemente y sugiere comandos
+  - [x] No mantiene conversaciones casuales
+- [x] **Contador de Comandos Unknown:**
+  - [x] 3 comandos unknown consecutivos → Ayuda proactiva (reproduce lista de comandos)
+  - [x] Contador se resetea con cualquier comando válido
+- [x] **System Prompt Externalizado:**
+  - [x] Prompt movido a `/lib/prompts/llm_system_prompt.dart`
+  - [x] Lazy loading + cache en memoria
+  - [x] Incluye todos los comandos nuevos en el prompt
+
+#### Criterios de Aceptación Técnico
+- [x] **Platform Channel Kotlin → Flutter:**
+  - [x] `SystemInfoService` con 3 métodos: getTime(), getDate(), getBatteryLevel()
+  - [x] Channel: `"com.accessibilityapp/system_info"`
+  - [x] Formatos accesibles implementados en Kotlin
+- [x] **6 Nuevos CommandType:**
+  - [x] Sistema: getTime, getDate, getBatteryLevel
+  - [x] Social: thankYou, goodbye
+  - [x] Rechazo: conversationRejected
+- [x] **Parser Local (NLPParser):**
+  - [x] Keywords para sistema, social y saludos
+  - [x] Prioridades actualizadas (1-12)
+  - [x] Detección de saludos sin objetivo
+- [x] **VoiceCommandProvider:**
+  - [x] Contador `_consecutiveUnknownCommands` con threshold de 3
+  - [x] Métodos helper: `_incrementUnknownCounter()`, `_resetUnknownCounter()`
+  - [x] Ejecución de 7 nuevos casos de comando
+  - [x] Reset en TODOS los comandos exitosos
+- [x] **Tutorial y Lista Actualizados:**
+  - [x] Tutorial menciona comandos de sistema
+  - [x] Lista de comandos incluye secciones de Sistema y Social
+- [x] **LLM Parser:**
+  - [x] System prompt externalizado
+  - [x] Mapeo de 6 nuevos tipos de comando
+  - [x] Reglas explícitas para rechazar conversaciones
+
+#### Archivos Creados (4)
+- [x] `lib/prompts/llm_system_prompt.dart` - Loader de prompt con cache
+- [x] `lib/services/system_info_service.dart` - Platform channel Flutter
+- [x] `.claude/docs/manual-test-cases/FUNCIONALIDAD_4.5_SISTEMA_SOCIAL.md` - 24 test cases
+
+#### Archivos Modificados (6)
+- [x] `lib/models/command.dart` - +6 CommandType enums
+- [x] `lib/utils/nlp_parser.dart` - +6 keywords + prioridades
+- [x] `lib/services/llm_parser_service.dart` - Usa prompt externo + mapeo nuevos tipos
+- [x] `lib/providers/voice_command_provider.dart` - Contador + ejecución + reseteos
+- [x] `android/app/src/main/kotlin/com/accessibilityapp/lamb/MainActivity.kt` - +1 channel + 3 métodos
+- [x] `lib/main.dart` - SystemInfoService injection
+
+#### Estatus 4.5
+- [x] Diseño completado (25 ene 2026)
+- [x] Implementación (25 ene 2026)
+- [x] Testing (24 test cases documentados)
+- [x] **COMPLETADO** ✅
+
+#### Notas de Implementación
+- **Formatos accesibles:** "2:30 de la tarde" no "14:30", "25 de enero" no "25/01"
+- **Respuestas sociales limitadas:** Solo gracias y adiós (no conversaciones)
+- **Rechazo amable:** Redirige a comandos disponibles
+- **Ayuda proactiva:** Después de 3 fallos, reproduce lista automáticamente
+- **System prompt:** Fácilmente editable, versionable en git
+- **Compatibilidad:** Android 7.0+ (API 21+)
+- **Tiempo real:** 2 horas vs 4-5 días estimados ✅
+
+---
+
+### FUNCIONALIDAD 4.6: Listado de Comandos por Categorías ✅
+
+**Prioridad: P1 (Alta - MVP)** → **COMPLETADO 04 feb 2026**
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero escuchar los comandos disponibles organizados por categoría
+Para entender mejor qué puedo hacer y no sentirme abrumado con una lista larga
+```
+
+#### Criterios de Aceptación Funcional
+- [x] **Comando intro de categorías:**
+  - [x] "comandos disponibles" / "qué puedo hacer" → Intro corto (~30s) mencionando 5 categorías
+  - [x] Explica cómo acceder a cada categoría: "Di 'comandos de' seguido de una categoría"
+- [x] **Comandos por categoría específica:**
+  - [x] "comandos de asistencia" → Lista: compartir pantalla, tutorial
+  - [x] "comandos de whatsapp" → Lista: abrir whatsapp
+  - [x] "comandos de volumen" → Lista: subir/bajar, máximo, silencio, porcentaje
+  - [x] "comandos de información" → Lista: hora, fecha, batería
+  - [x] "comandos de ajustes" → Lista: alto contraste, cancelar, gracias, adiós
+- [x] **Lista completa:**
+  - [x] "todos los comandos" / "lista completa" → Lista completa de todos los comandos (~90-120s)
+- [x] **UI agrupada por categorías:**
+  - [x] 5 secciones con iconos distintivos (support_agent, chat, volume_up, info_outline, settings)
+  - [x] Cada categoría con borde coloreado y título visible
+  - [x] Nota informativa sobre cómo escuchar por categoría
+
+#### Criterios de Aceptación Técnico
+- [x] **6 Nuevos CommandType:**
+  - [x] `listAllCommands` → Lista completa
+  - [x] `listCategoryAssistance` → Categoría asistencia
+  - [x] `listCategoryWhatsapp` → Categoría WhatsApp
+  - [x] `listCategoryVolume` → Categoría volumen
+  - [x] `listCategoryInfo` → Categoría información
+  - [x] `listCategorySettings` → Categoría ajustes
+- [x] **7 Métodos TTS en VoiceCommandProvider:**
+  - [x] `_listAvailableCommands()` → Intro corto (refactorizado)
+  - [x] `_listAllCommands()` → Lista completa
+  - [x] `_listCategoryAssistance()` → Solo asistencia
+  - [x] `_listCategoryWhatsapp()` → Solo WhatsApp
+  - [x] `_listCategoryVolume()` → Solo volumen
+  - [x] `_listCategoryInfo()` → Solo información
+  - [x] `_listCategorySettings()` → Solo ajustes
+- [x] **NLP Parser:**
+  - [x] Keywords para cada categoría con prioridad correcta
+  - [x] "comandos de X" procesado ANTES de "comandos" genérico
+  - [x] "todos los comandos" procesado ANTES de "comandos" genérico
+- [x] **LLM System Prompt:**
+  - [x] 7 nuevos tipos de comando documentados
+  - [x] Ejemplos de parsing para categorías
+- [x] **UI Rediseñada:**
+  - [x] `_buildCommandsHelp()` refactorizado con categorías
+  - [x] `_buildCategorySection()` widget reutilizable
+  - [x] Iconos y colores distintivos por categoría
+  - [x] Semantics container para cada categoría (TalkBack)
+
+#### Archivos Modificados (6)
+- [x] `lib/models/command.dart` - +6 CommandType enums
+- [x] `lib/prompts/llm_system_prompt.dart` - Nuevos tipos y ejemplos
+- [x] `lib/providers/voice_command_provider.dart` - +7 métodos TTS + switch cases
+- [x] `lib/screens/voice_command_screen.dart` - UI categorizada con iconos
+- [x] `lib/utils/nlp_parser.dart` - +6 keyword sets con prioridades
+- [x] `.claude/docs/manual-test-cases/FUNCIONALIDAD_4.1_COMANDOS_DE_VOZ.md` - +5 test cases
+
+#### Test Cases (5 nuevos)
+- [x] TC-VOICE-021: TTS intro de categorías
+- [x] TC-VOICE-022: TTS categoría específica (Asistencia)
+- [x] TC-VOICE-023: TTS lista completa
+- [x] TC-VOICE-024: UI muestra categorías agrupadas
+- [x] TC-VOICE-025: Categorías adicionales funcionan correctamente
+
+#### Estatus 4.6
+- [x] Diseño completado
+- [x] Implementación
+- [x] Testing documentado
+- [x] **COMPLETADO** ✅ (04 feb 2026)
+
+#### Notas de Implementación
+- **UX mejorada:** Intro corto evita abrumar al usuario
+- **Escalable:** Fácil agregar nuevas categorías
+- **Consistente:** Misma estructura en TTS y UI
+- **Accesible:** Semantics container en cada categoría
+
+---
+
+### FUNCIONALIDAD 4.7: Firebase Analytics (Tracking de Comandos)
+
+**Prioridad: P2 (Post-MVP - v1.2)** *(Renumerado desde 4.6)*
+
+#### Historia de Usuario
+```
+Como desarrollador del proyecto
+Quiero analizar qué comandos usan más los usuarios
+Para mejorar el parser y priorizar nuevas funcionalidades
+```
+
+#### Criterios de Aceptación Funcional
+- [ ] Todos los comandos reconocidos se loggean en Firebase Analytics
+- [ ] Comandos no reconocidos se reportan con transcripción completa
+- [ ] Dashboard en Firebase muestra:
+  - Top 10 comandos más usados
+  - Tasa de éxito del parser (keywords vs LLM vs unknown)
+  - Latencia promedio por tipo de parser
+- [ ] Privacy-compliant: NO loggear contenido sensible (nombres, mensajes)
+
+#### Criterios de Aceptación Técnico
+- [ ] Firebase Analytics SDK integrado
+- [ ] Eventos custom: command_recognized, command_failed, parser_fallback
+- [ ] Parámetros: category, action, parser_type, latency_ms
+- [ ] Consent management para GDPR/CCPA
+- [ ] Agregación semanal de métricas
+
+#### Archivos a Crear
+- `lib/services/analytics_service.dart` - Wrapper de Firebase Analytics
+- `lib/models/command_analytics.dart` - Modelo para eventos
+
+#### Estatus 4.7
+- [ ] Por hacer (Post-MVP v1.2)
+- [ ] Firebase Analytics setup
+- [ ] Implementación
+- [ ] Dashboard configurado
+
+---
+
+### FUNCIONALIDAD 5: Integración WhatsApp (Deep Links + Voice Commands)
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero abrir WhatsApp y mis chats frecuentes por voz o botón grande
+Para comunicarme con mis contactos sin necesidad de buscar manualmente
+```
+
+#### Criterios de Aceptación Funcional
+- [x] "Abrir WhatsApp" por voz → Abre la app (platform channel implementado)
+- [ ] "Abrir chat de [nombre]" por voz → Abre chat específico si tiene número guardado
+- [ ] Lista de contactos frecuentes (máximo 6-8) con botones grandes 80dp
+- [ ] Al presionar contacto, abre WhatsApp en el chat específico
+- [ ] Si WhatsApp no instalado: mensaje claro + TTS "WhatsApp no está instalado"
+- [ ] Feedback audible confirma: "Abriendo WhatsApp de María"
+- [ ] Familiar puede ayudar remotamente a configurar contactos frecuentes
+- [ ] Comandos de voz integrados con CommandCategory.whatsapp
 
 #### Criterios de Aceptación Técnico
 - [ ] Implementado usando deep links de WhatsApp: whatsapp:// y wa.me/
@@ -385,7 +771,130 @@ Para comunicarme con mis contactos sin necesidad de buscar en la aplicación
 
 ---
 
-### FUNCIONALIDAD 6: Gestión de Permisos
+### FUNCIONALIDAD 6: Asistente Visual (Visual Assistant)
+
+**Prioridad: P3 (Post-MVP - v2.0)**
+
+#### Visión General
+Asistente visual basado en ML/AI que ayuda a usuarios con baja visión a "ver" mediante descripciones de voz. Utiliza la cámara del dispositivo + modelos de IA para describir escenas, leer texto y detectar objetos.
+
+**Stack Tecnológico:**
+- **ML Kit (Google):** OCR, object detection, image labeling (on-device, gratis)
+- **Claude Vision API (Anthropic):** Descripción detallada de imágenes (cloud, más preciso)
+- **Gemini Vision (Google):** Alternativa a Claude Vision
+
+---
+
+### FUNCIONALIDAD 6.1: Image Description (Descripción de Imágenes)
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero que la app me describa lo que ve la cámara
+Para entender mi entorno sin necesidad de ver claramente
+```
+
+#### Criterios de Aceptación Funcional
+- [ ] Comando de voz: "¿Qué ves?" o "Describe lo que ves"
+- [ ] App captura foto con cámara trasera automáticamente
+- [ ] Envía imagen a Claude Vision API o Gemini Vision
+- [ ] TTS lee descripción detallada: "Veo una mesa con dos tazas de café, un celular y un periódico"
+- [ ] Usuario puede pedir más detalles: "¿De qué color es la taza?"
+- [ ] Funciona en interiores y exteriores
+- [ ] Feedback audible mientras procesa: "Analizando imagen..."
+
+#### Criterios de Aceptación Técnico
+- [ ] CommandCategory.visual con action: describe_image
+- [ ] Integración con camera plugin para captura de foto
+- [ ] Cliente HTTP para Claude Vision API o Gemini Vision API
+- [ ] Compresión de imagen antes de enviar (reducir costos)
+- [ ] Cache de descripciones para misma escena (evitar llamadas repetidas)
+- [ ] Timeout de 10 segundos, fallback a "No pude analizar la imagen"
+
+#### Archivos a Crear
+- `lib/services/vision_service.dart` - Cliente para Vision API
+- `lib/utils/image_processor.dart` - Compresión y preprocessing
+- `lib/screens/visual_assistant_screen.dart` - UI con preview de cámara
+
+#### Estatus 6.1
+- [ ] Por hacer (v2.0)
+- [ ] Implementación
+- [ ] Testing
+
+---
+
+### FUNCIONALIDAD 6.2: OCR & Text Reading (Lectura de Texto)
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero que la app lea texto de documentos, etiquetas o pantallas
+Para acceder a información escrita sin necesidad de lentes especiales
+```
+
+#### Criterios de Aceptación Funcional
+- [ ] Comando de voz: "Lee esto" o "¿Qué dice aquí?"
+- [ ] App captura foto enfocada en texto
+- [ ] Extrae texto usando ML Kit OCR (on-device, instantáneo)
+- [ ] TTS lee el texto extraído en voz alta
+- [ ] Soporta texto impreso y digital (pantallas)
+- [ ] Idioma: Español e inglés
+- [ ] Feedback si no detecta texto: "No encuentro texto legible"
+
+#### Criterios de Aceptación Técnico
+- [ ] CommandCategory.visual con action: read_text
+- [ ] Integración con ML Kit Text Recognition v2
+- [ ] On-device processing (sin enviar a cloud, más rápido)
+- [ ] Detección automática de idioma
+- [ ] Highlight de texto detectado en preview (opcional)
+
+#### Archivos a Crear
+- `lib/services/ocr_service.dart` - ML Kit OCR wrapper
+- Actualizar `lib/services/vision_service.dart`
+
+#### Estatus 6.2
+- [ ] Por hacer (v2.0)
+- [ ] Implementación
+- [ ] Testing
+
+---
+
+### FUNCIONALIDAD 6.3: Object Detection (Detección de Objetos)
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero identificar objetos comunes en mi entorno
+Para encontrar cosas como mis llaves, medicamentos o control remoto
+```
+
+#### Criterios de Aceptación Funcional
+- [ ] Comando de voz: "¿Dónde están mis llaves?" o "Busca mi celular"
+- [ ] App usa cámara para detectar objetos en tiempo real
+- [ ] ML Kit Image Labeling identifica objetos visibles
+- [ ] TTS anuncia: "Veo un celular a la izquierda, unas llaves en el centro"
+- [ ] Feedback de dirección relativa (izquierda/derecha/centro)
+- [ ] Soporta 400+ categorías de objetos comunes
+
+#### Criterios de Aceptación Técnico
+- [ ] CommandCategory.visual con action: detect_object
+- [ ] Integración con ML Kit Object Detection & Tracking
+- [ ] Procesamiento on-device en tiempo real (30fps ideal)
+- [ ] Mapeo de coordenadas a direcciones relativas
+- [ ] Filtrado de objetos por relevancia (priorizar objetivo de búsqueda)
+
+#### Archivos a Crear
+- `lib/services/object_detection_service.dart` - ML Kit wrapper
+- Actualizar `lib/providers/voice_command_provider.dart` con visual commands
+
+#### Estatus 6.3
+- [ ] Por hacer (v2.0)
+- [ ] Implementación
+- [ ] Testing
+
+---
+
+### FUNCIONALIDAD 7: Gestión de Permisos
 
 #### Historia de Usuario
 ```
@@ -487,14 +996,23 @@ Para poder usar todas las funcionalidades sin sentirme perdido en configuracione
 
 ## MATRIZ DE PRIORIDADES
 
-| Funcionalidad | Impacto Usuario | Complejidad Técnica | Prioridad | Semanas Estimadas |
-|--------------|-----------------|---------------------|-----------|-------------------|
-| **Setup del Proyecto Flutter** | Crítico (base para todo) | Media | **P0** | 1 |
-| **Interfaz Accesible Básica** | Muy Alto (usabilidad core) | Baja-Media | **P0** | 1-2 |
-| **Gestión de Permisos** | Muy Alto (sin permisos nada funciona) | Media | **P0** | 1 |
-| **ElevenLabs STT/TTS** | Alto (accesibilidad clave) | Media | **P1** | 1-2 |
-| **WhatsApp Deep Links** | Medio (funcionalidad básica) | Baja | **P1** | 0.5-1 |
-| **WebRTC Control Remoto** | **Crítico (MVP core value)** | **Muy Alta** | **P0** | 2-3 |
+| Funcionalidad | Impacto Usuario | Complejidad Técnica | Prioridad | Estatus | Tiempo Estimado |
+|--------------|-----------------|---------------------|-----------|---------|-----------------|
+| **1. Setup del Proyecto** | Crítico (base) | Media | **P0** | ✅ Listo | 1 semana |
+| **2. WebRTC Control Remoto** | **Crítico (MVP core)** | **Muy Alta** | **P0** | ✅ Listo | 2-3 semanas |
+| **3. Interfaz Accesible Básica** | Muy Alto (usabilidad) | Baja-Media | **P0** | ✅ Listo | 1-2 semanas |
+| **4.1 Voice Commands (Core)** | Alto (accesibilidad) | Media | **P1** | ✅ Listo | 1 semana |
+| **4.2 System Actions** | Medio (conveniencia) | Baja | **P1** | ✅ Listo | 0.5 semana |
+| **4.3 Assistance Actions** | Alto (UX crítica) | Media | **P1** | ✅ Listo | 1 semana |
+| **4.4 LLM Enhancement** | Medio (mejora) | Alta | **P2** | ✅ Listo | 1-2 semanas |
+| **4.5 System + Social + Prompt** | Medio (mejora) | Media | **P1** | ✅ Listo (25 ene) | 2 horas |
+| **4.6 Command Categories** | Alto (UX mejora) | Baja | **P1** | ✅ Listo (04 feb) | 3 horas |
+| **4.7 Analytics** | Bajo (monitoreo) | Baja | **P2** | Post-MVP v1.2 | 0.5 semana |
+| **5. WhatsApp Integration** | Medio (funcionalidad) | Baja-Media | **P1** | 🔜 Pendiente | 1 semana |
+| **6.1 Image Description** | Alto (innovación) | Alta | **P3** | v2.0 | 2 semanas |
+| **6.2 OCR Text Reading** | Alto (innovación) | Media | **P3** | v2.0 | 1 semana |
+| **6.3 Object Detection** | Medio (innovación) | Alta | **P3** | v2.0 | 2 semanas |
+| **7. Gestión de Permisos** | Muy Alto (bloqueante) | Media | **P0** | 🔜 Pendiente | 1 semana |
 
 ### Notas de Priorización
 
@@ -1447,6 +1965,10 @@ Durante las pruebas del TC-HP-004, se identificó que aunque el código se anunc
 
 | Fecha | Versión | Cambios |
 |-------|---------|---------|
+| 04 feb 2026 | 2.2 | **FUNCIONALIDAD 4.6 completada:** Listado de Comandos por Categorías. Incluye: 6 nuevos CommandType para categorías (listAllCommands, listCategoryAssistance/Whatsapp/Volume/Info/Settings), 7 métodos TTS en VoiceCommandProvider, UI rediseñada con iconos por categoría, NLP parser con prioridades para categorías, 5 test cases (TC-VOICE-021 a 025). Analytics renumerado a 4.7. Matriz de prioridades actualizada con 4.2 y 4.6 como completados. |
+| 25 ene 2026 | 2.1 | **FUNCIONALIDAD 4.5 completada:** Comandos de Sistema + Respuestas Sociales + System Prompt Externalizado. Incluye: getTime/getDate/getBatteryLevel (Kotlin), thankYou/goodbye, conversationRejected, contador unknown con ayuda proactiva, prompt externalizado en `/lib/prompts/`, 6 nuevos CommandType, 24 test cases. Analytics renumerado a 4.6. |
+| 18 ene 2026 | 2.0 | **REORGANIZACIÓN MAYOR:** Funcionalidad 4 dividida en subfuncionalidades granulares (4.1-4.5). Nueva Funcionalidad 6 (Visual Assistant) con ML/AI agregada. Arquitectura de comandos actualizada con CommandCategory + Parser Híbrido. UX simplificada con FAB push-to-talk. Gestión de Permisos renumerada como Funcionalidad 7. |
+| 18 ene 2026 | 1.3 | **FUNCIONALIDAD 4.1 completada:** Voice Command Infrastructure (Core) implementado con ElevenLabs STT + flutter_tts. Incluye: VoiceCommand model, NLPParser, VoiceCommandProvider, VoiceCommandScreen, WhatsAppService platform channel, unit tests. Estatus: En desarrollo. |
 | 11 ene 2026 | 1.2 | Agregada FUNCIONALIDAD 7: Configuración de Release para Producción. Renumeradas funcionalidades post-MVP (8-11) |
 | 08 ene 2026 | 1.1 | Agregada sección "Mejoras Post-MVP" con mejora 2.1.1 (Repetir código en altavoz) |
 | 24 dic 2025 | 1.0 | Backlog inicial creado basado en ROADMAP v1.1 y ARQUITECTURA v2.0 |
@@ -1454,7 +1976,8 @@ Durante las pruebas del TC-HP-004, se identificó que aunque el código se anunc
 ---
 
 **Próximos pasos:**
-1. Revisar y aprobar este backlog
-2. Iniciar desarrollo siguiendo prioridades P0
-3. Actualizar estatus de cada funcionalidad conforme avanza el desarrollo
-4. Sesión de planning semanal para ajustar estimaciones según progreso real
+1. ✅ Funcionalidades P0 completadas (Setup, WebRTC, Interfaz Accesible)
+2. ✅ Funcionalidades de voz 4.1-4.6 completadas
+3. 🔜 **SIGUIENTE:** Funcionalidad 5 - WhatsApp Integration (deep links + chat por nombre)
+4. 🔜 Funcionalidad 7 - Gestión de Permisos (tutorial de onboarding)
+5. Testing con usuarios reales antes de release

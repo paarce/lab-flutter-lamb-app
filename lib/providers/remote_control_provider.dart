@@ -414,8 +414,7 @@ class RemoteControlProvider extends ChangeNotifier {
         }
         break;
       case RemoteControlStatus.connecting:
-        message = 'Tu familiar se está conectando';
-        break;
+        return;
       case RemoteControlStatus.connected:
         message = 'Conectado. Tu familiar ahora puede ver tu pantalla y ayudarte.';
         break;

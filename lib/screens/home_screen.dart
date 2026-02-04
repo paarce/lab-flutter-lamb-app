@@ -2,14 +2,21 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 
 import 'remote_control_host_screen.dart';
+import 'voice_command_screen.dart';
 
-/// Pantalla principal de la aplicación
+/// [DEPRECATED] Pantalla inicial original con menú de opciones.
 ///
-/// Muestra las funcionalidades principales:
-/// - Comandos de voz
-/// - WhatsApp
-/// - Control remoto
-/// - Configuración
+/// Esta pantalla fue reemplazada por [VoiceCommandScreen] como pantalla
+/// principal de la app, priorizando comandos de voz sobre navegación manual.
+///
+/// Se mantiene en el codebase para potencial uso futuro como:
+/// - Pantalla de configuración avanzada
+/// - Flujo secundario para usuarios que prefieren UI tradicional
+/// - Acceso a features no disponibles por voz
+///
+/// Para acceder: Navegar desde VoiceCommandScreen usando comandos de voz
+/// o botón "Más opciones" (futuro).
+@Deprecated('Use VoiceCommandScreen as main entry point')
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -51,14 +58,19 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 48),
 
-              // Botón: Comandos de Voz (funcionalidad futura)
+              // Botón: Comandos de Voz
               Semantics(
                 label: 'Comandos de voz',
                 hint: 'Toca dos veces para usar comandos de voz',
                 button: true,
-                enabled: false, // Deshabilitado por ahora
                 child: ElevatedButton.icon(
-                  onPressed: null, // null = deshabilitado
+                  onPressed: () {
+                    developer.log('User pressed voice commands', name: 'HomeScreen');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const VoiceCommandScreen()),
+                    );
+                  },
                   icon: const Icon(Icons.mic, size: 32),
                   label: const Text('Comandos de Voz'),
                 ),
@@ -90,7 +102,7 @@ class HomeScreen extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     developer.log(
-                      '🏠 [HomeScreen] User pressed "Control Remoto" button',
+                      'User pressed "Control Remoto" button',
                       name: 'HomeScreen',
                     );
                     Navigator.of(context).push(

@@ -52,6 +52,9 @@ dependencies:
   # WebSocket para ElevenLabs STT
   web_socket_channel: ^2.4.0
 
+  # Captura de audio del micrófono (STT)
+  mic_stream: ^0.7.0
+
   # Text-to-Speech (TTS) nativo - Motor Android/iOS
   flutter_tts: ^4.2.5
 
@@ -64,6 +67,12 @@ dependencies:
 
   # Permisos
   permission_handler: ^11.1.0
+
+  # Screen wakelock para mantener pantalla activa durante TTS
+  wakelock_plus: ^1.2.1
+
+  # Haptic feedback mejorado (mejor compatibilidad con Samsung/OneUI)
+  haptic_feedback: ^0.6.4+3
 
   # Firebase
   firebase_core: ^3.15.0

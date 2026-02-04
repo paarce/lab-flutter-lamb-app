@@ -26,6 +26,8 @@ class ErrorMessages {
         return _elevenLabsMessage(error.code);
       case ErrorCategory.webRTC:
         return _webRTCMessage(error.code);
+      case ErrorCategory.llm:
+        return _llmMessage(error.code);
       case ErrorCategory.network:
         return _networkMessage(error.code);
       case ErrorCategory.unknown:
@@ -109,6 +111,21 @@ class ErrorMessages {
         return 'Tu conexión es inestable. Intenta de nuevo cuando mejore.';
       default:
         return 'Error de conexión. Intenta de nuevo.';
+    }
+  }
+
+  static String _llmMessage(String code) {
+    switch (code) {
+      case ErrorCodes.llmApiKeyInvalid:
+        return 'Error de configuración del asistente. Contacta con soporte.';
+      case ErrorCodes.llmRateLimitExceeded:
+        return 'El asistente está ocupado. Intenta con un comando más simple.';
+      case ErrorCodes.llmTimeout:
+        return 'El asistente tardó demasiado. Intenta de nuevo.';
+      case ErrorCodes.llmParseError:
+        return 'No entendí el comando. Intenta de nuevo con otras palabras.';
+      default:
+        return 'Error del asistente de voz. Intenta de nuevo.';
     }
   }
 

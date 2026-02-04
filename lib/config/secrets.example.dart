@@ -42,6 +42,11 @@ class Secrets {
   /// Firebase Storage Bucket
   static const String firebaseStorageBucket = 'YOUR_PROJECT_ID.firebasestorage.app';
 
-  /// Otros secrets que necesites
-  // static const String otherApiKey = 'VALUE';
+  // ========================================
+  // Claude API Configuration (Feature 4.4)
+  // ========================================
+  /// API key de Claude para parsing LLM de comandos de voz
+  /// Obtener en: https://console.anthropic.com/settings/keys
+  /// Nota: Solo se usa como fallback cuando el parser local falla
+  static const String claudeApiKey = 'YOUR_CLAUDE_API_KEY_HERE';
 }
