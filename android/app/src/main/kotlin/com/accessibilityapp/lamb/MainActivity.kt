@@ -211,6 +211,58 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "openChatByPhone" -> {
+                    try {
+                        val phone = call.argument<String>("phone")
+
+                        if (phone.isNullOrBlank()) {
+                            result.error(
+                                "INVALID_PHONE",
+                                "Phone number cannot be empty",
+                                null
+                            )
+                            return@setMethodCallHandler
+                        }
+
+                        Log.d(TAG, "Opening WhatsApp chat for phone: $phone")
+
+                        // Use wa.me deep link to open chat
+                        val uri = android.net.Uri.parse("https://wa.me/$phone")
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                        // Check if WhatsApp can handle this intent
+                        if (intent.resolveActivity(packageManager) != null) {
+                            startActivity(intent)
+                            Log.d(TAG, "WhatsApp chat opened successfully")
+                            result.success(null)
+                        } else {
+                            // Fallback: try opening WhatsApp directly
+                            val fallbackIntent = packageManager.getLaunchIntentForPackage(WHATSAPP_PACKAGE)
+                            if (fallbackIntent != null) {
+                                fallbackIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                startActivity(fallbackIntent)
+                                Log.d(TAG, "WhatsApp opened (fallback - no wa.me support)")
+                                result.success(null)
+                            } else {
+                                Log.e(TAG, "WhatsApp not installed")
+                                result.error(
+                                    "NOT_FOUND",
+                                    "WhatsApp is not installed on this device",
+                                    null
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to open WhatsApp chat", e)
+                        result.error(
+                            "CHAT_OPEN_FAILED",
+                            "Failed to open WhatsApp chat: ${e.message}",
+                            e.stackTraceToString()
+                        )
+                    }
+                }
+
                 else -> {
                     result.notImplemented()
                 }

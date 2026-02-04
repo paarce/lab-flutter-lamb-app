@@ -8,10 +8,13 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/command.dart';
 import '../screens/remote_control_host_screen.dart';
 import '../services/elevenlabs_service.dart';
+import '../services/error_handler_service.dart';
 import '../services/llm_parser_service.dart';
 import '../services/system_info_service.dart';
 import '../services/tts/tts_service.dart';
+import '../services/whatsapp_service.dart';
 import '../utils/nlp_parser.dart';
+import 'contacts_provider.dart';
 import 'theme_provider.dart';
 
 /// Estados del sistema de comandos de voz
@@ -49,6 +52,8 @@ class VoiceCommandProvider extends ChangeNotifier {
   final ThemeProvider _themeProvider;
   final SystemInfoService _systemInfoService;
   final LLMParserService? _llmParserService;
+  final WhatsAppService _whatsAppService;
+  final ContactsProvider? _contactsProvider;
 
   /// Callback para navegacion (configurado por la screen)
   void Function(Widget screen)? _navigationCallback;
@@ -88,21 +93,33 @@ class VoiceCommandProvider extends ChangeNotifier {
   /// Duración del timeout (10 segundos)
   static const _timeoutDuration = Duration(seconds: 10);
 
+  /// Context for error handling (set by screen)
+  BuildContext? _errorContext;
+
   VoiceCommandProvider({
     required ElevenLabsService sttService,
     required TTSService ttsService,
     required ThemeProvider themeProvider,
     required SystemInfoService systemInfoService,
+    required WhatsAppService whatsAppService,
     LLMParserService? llmParserService,
+    ContactsProvider? contactsProvider,
   })  : _sttService = sttService,
         _ttsService = ttsService,
         _themeProvider = themeProvider,
         _systemInfoService = systemInfoService,
-        _llmParserService = llmParserService;
+        _whatsAppService = whatsAppService,
+        _llmParserService = llmParserService,
+        _contactsProvider = contactsProvider;
 
   /// Configura el callback de navegacion desde la screen
   void setNavigationCallback(void Function(Widget screen) callback) {
     _navigationCallback = callback;
+  }
+
+  /// Configura el context para error handling (llamar desde screen)
+  void setErrorContext(BuildContext context) {
+    _errorContext = context;
   }
 
   /// Inicia el reconocimiento de voz
@@ -331,26 +348,73 @@ class VoiceCommandProvider extends ChangeNotifier {
         break;
 
       case CommandType.openWhatsApp:
-        final contact = command.parameters?['contact'] as String?;
-        if (contact != null && contact.isNotEmpty) {
-          await _ttsService.speak('Abriendo chat de $contact');
-          developer.log(
-            'Opening WhatsApp chat for contact: $contact',
-            name: 'VoiceCommandProvider',
-          );
+        final contactName = command.parameters?['contact'] as String?;
+
+        if (contactName != null && contactName.isNotEmpty) {
+          // Try to find contact in favorites
+          final contact = _contactsProvider?.findByName(contactName);
+
+          if (contact != null) {
+            await _ttsService.speak('Abriendo chat de ${contact.name}');
+            developer.log(
+              'Opening WhatsApp chat for contact: ${contact.name}',
+              name: 'VoiceCommandProvider',
+            );
+
+            try {
+              await _whatsAppService.openChatByPhone(contact.phoneNumber);
+            } catch (e, stackTrace) {
+              developer.log(
+                'Failed to open WhatsApp chat',
+                name: 'VoiceCommandProvider',
+                error: e,
+                stackTrace: stackTrace,
+              );
+              if (_errorContext != null && _errorContext!.mounted) {
+                await ErrorHandlerService.handleError(
+                  context: _errorContext!,
+                  error: e,
+                  service: 'WhatsApp',
+                );
+              }
+            }
+          } else {
+            await _ttsService.speak(
+              'No encontré a $contactName en tus contactos favoritos. '
+              'Puedes agregarlo en la pantalla de WhatsApp.',
+            );
+            developer.log(
+              'Contact not found in favorites: $contactName',
+              name: 'VoiceCommandProvider',
+            );
+          }
         } else {
+          // Just open WhatsApp without specific contact
           await _ttsService.speak('Abriendo WhatsApp');
           developer.log(
             'Opening WhatsApp (no specific contact)',
             name: 'VoiceCommandProvider',
           );
+
+          try {
+            await _whatsAppService.openWhatsApp();
+          } catch (e, stackTrace) {
+            developer.log(
+              'Failed to open WhatsApp',
+              name: 'VoiceCommandProvider',
+              error: e,
+              stackTrace: stackTrace,
+            );
+            if (_errorContext != null && _errorContext!.mounted) {
+              await ErrorHandlerService.handleError(
+                context: _errorContext!,
+                error: e,
+                service: 'WhatsApp',
+              );
+            }
+          }
         }
-        // TODO: Llamar platform channel para abrir WhatsApp
-        // Nota: Este TODO se implementará en Feature 5 (WhatsApp Integration)
-        developer.log(
-          'TODO: Call platform channel to open WhatsApp',
-          name: 'VoiceCommandProvider',
-        );
+
         _resetUnknownCounter();
         break;
 
@@ -638,6 +702,7 @@ Los comandos principales son:
 Primero: Di "compartir pantalla" para que un familiar vea tu pantalla y te ayude.
 
 Segundo: Di "abrir WhatsApp" para abrir la aplicación de mensajes.
+También puedes decir "chat de María" para abrir directamente el chat de un contacto favorito.
 
 Tercero: Di "alto contraste" para cambiar los colores de la pantalla.
 
@@ -680,6 +745,8 @@ Tutorial: Escucha una guía sobre cómo usar la app.
 
 WhatsApp:
 Abrir WhatsApp: Abre la aplicación de mensajes.
+Chat de María: Abre el chat de un contacto favorito.
+También puedes decir: hablar con Juan, mensaje a Pedro.
 
 Volumen:
 Subir volumen o bajar volumen: Ajusta el sonido.
@@ -721,7 +788,12 @@ Tutorial: Escucha una guía completa de uso de la aplicación.
     const text = '''
 Comandos de WhatsApp:
 
-Abrir WhatsApp: Abre la aplicación de mensajes para que puedas comunicarte con tus contactos.
+Abrir WhatsApp: Abre la aplicación de mensajes.
+
+Chat de María: Abre directamente el chat de un contacto favorito.
+También puedes decir: hablar con Juan, mensaje a Pedro, o llamar a mamá por WhatsApp.
+
+Para agregar contactos favoritos, ve a la pantalla de WhatsApp desde el menú.
 ''';
 
     await _ttsService.speak(text);

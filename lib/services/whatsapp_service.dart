@@ -87,6 +87,66 @@ class WhatsAppService {
     }
   }
 
+  /// Abre un chat de WhatsApp con un número de teléfono específico
+  ///
+  /// [phoneNumber] Número de teléfono con código de país (e.g., +525512345678)
+  ///
+  /// Uses wa.me deep link to open the chat directly
+  ///
+  /// Throws [AppError] si:
+  /// - WhatsApp no está instalado (code: 'NOT_FOUND')
+  /// - Número inválido (code: 'INVALID_PHONE')
+  /// - Error del platform channel
+  Future<void> openChatByPhone(String phoneNumber) async {
+    // Sanitize phone number: remove spaces, dashes, parentheses
+    final sanitized = phoneNumber.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
+
+    developer.log(
+      'Opening WhatsApp chat for phone: $sanitized',
+      name: 'WhatsAppService',
+    );
+
+    try {
+      await _platform.invokeMethod('openChatByPhone', {
+        'phone': sanitized,
+      });
+
+      developer.log(
+        'WhatsApp chat opened successfully',
+        name: 'WhatsAppService',
+      );
+    } on PlatformException catch (e) {
+      developer.log(
+        'Failed to open WhatsApp chat',
+        name: 'WhatsAppService',
+        error: e,
+      );
+
+      throw AppError(
+        category: ErrorCategory.platformChannel,
+        code: e.code,
+        technicalMessage: e.message,
+        userMessage: _getUserMessage(e.code),
+        stackTrace: e.stacktrace != null ? StackTrace.fromString(e.stacktrace!) : null,
+      );
+    } catch (e, stackTrace) {
+      developer.log(
+        'Unexpected error opening WhatsApp chat',
+        name: 'WhatsAppService',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
+      throw AppError(
+        category: ErrorCategory.platformChannel,
+        code: 'UNKNOWN_ERROR',
+        technicalMessage: e.toString(),
+        userMessage: 'Error al abrir el chat de WhatsApp',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Convierte códigos de error a mensajes para usuario
   String _getUserMessage(String code) {
     switch (code) {
@@ -94,6 +154,10 @@ class WhatsAppService {
         return 'WhatsApp no está instalado en este dispositivo';
       case 'PERMISSION_DENIED':
         return 'Se requiere permiso de Accesibilidad para usar WhatsApp';
+      case 'INVALID_PHONE':
+        return 'El número de teléfono no es válido';
+      case 'CHAT_OPEN_FAILED':
+        return 'No se pudo abrir el chat de WhatsApp';
       default:
         return 'Error al abrir WhatsApp';
     }

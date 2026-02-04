@@ -3,9 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import 'models/contact.dart';
+import 'providers/contacts_provider.dart';
 import 'providers/remote_control_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/voice_command_provider.dart';
+import 'services/contact_storage_service.dart';
 import 'screens/voice_command_screen.dart';
 import 'services/elevenlabs_service.dart';
 import 'firebase_options.dart';
@@ -16,6 +19,7 @@ import 'services/logger_service.dart';
 import 'services/system_info_service.dart';
 import 'services/tts/tts_factory.dart';
 import 'services/tts/tts_service.dart';
+import 'services/whatsapp_service.dart';
 
 /// Entry point de la aplicación
 /// Inicializa Firebase, Hive y Provider antes de ejecutar la app
@@ -38,7 +42,11 @@ void main() async {
   try {
     // Inicializar Hive (base de datos local)
     await Hive.initFlutter();
-    debugPrint('[Hive] Inicializado correctamente');
+
+    // Registrar adaptadores de Hive
+    Hive.registerAdapter(ContactAdapter());
+
+    debugPrint('[Hive] Inicializado correctamente con adaptadores');
   } catch (e) {
     debugPrint('[Hive] Error al inicializar: $e');
   }
@@ -91,6 +99,28 @@ class MyApp extends StatelessWidget {
           create: (_) => SystemInfoService(),
         ),
 
+        // WhatsApp Service (Feature 5 - WhatsApp Integration)
+        Provider<WhatsAppService>(
+          create: (_) => WhatsAppService(),
+        ),
+
+        // Contact Storage Service (Feature 5 - WhatsApp Integration)
+        Provider<ContactStorageService>(
+          create: (_) => ContactStorageService(),
+        ),
+
+        // Contacts Provider (Feature 5 - WhatsApp Integration)
+        ChangeNotifierProvider<ContactsProvider>(
+          create: (context) {
+            final provider = ContactsProvider(
+              storageService: context.read<ContactStorageService>(),
+            );
+            // Initialize asynchronously
+            provider.init();
+            return provider;
+          },
+        ),
+
         // Initialize providers with dependencies
         ChangeNotifierProvider<RemoteControlProvider>(
           create: (context) => RemoteControlProvider(
@@ -110,7 +140,9 @@ class MyApp extends StatelessWidget {
             ttsService: context.read<TTSService>(),
             themeProvider: context.read<ThemeProvider>(),
             systemInfoService: context.read<SystemInfoService>(),
+            whatsAppService: context.read<WhatsAppService>(),
             llmParserService: context.read<LLMParserService>(),
+            contactsProvider: context.read<ContactsProvider>(),
           ),
         ),
       ],

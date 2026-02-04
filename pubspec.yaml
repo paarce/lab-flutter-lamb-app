@@ -68,6 +68,9 @@ dependencies:
   # Permisos
   permission_handler: ^11.1.0
 
+  # UUID generation for unique IDs
+  uuid: ^4.2.1
+
   # Screen wakelock para mantener pantalla activa durante TTS
   wakelock_plus: ^1.2.1
 
@@ -89,6 +92,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+
+  # Hive code generation for TypeAdapters
+  hive_generator: ^2.0.0
+  build_runner: ^2.4.6
 
 # Dependency override solo para firebase_messaging_web (no se usa en cliente web)
 dependency_overrides:

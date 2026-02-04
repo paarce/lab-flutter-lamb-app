@@ -11,42 +11,18 @@ import '../utils/error_messages.dart';
 import 'logger_service.dart';
 import 'tts/tts_factory.dart';
 
-/// SERVICIO CENTRAL de gestión de errores
+/// Central error handling service
 ///
-/// Punto único donde TODOS los errores de la app se manejan.
-/// Responsabilidades:
-/// 1. Mostrar diálogo modal accesible al usuario
-/// 2. Reproducir mensaje de error con TTS
-/// 3. Registrar error en logs
-/// 4. Ofrecer opciones (Reintentar, Cerrar)
-///
-/// USO:
-/// ```dart
-/// try {
-///   await miServicio.hacerAlgo();
-/// } catch (e) {
-///   if (context.mounted) {
-///     await ErrorHandlerService.handleError(
-///       context: context,
-///       error: e,
-///       service: 'MiService',
-///       canRetry: true,
-///     );
-///   }
-/// }
-/// ```
+/// Single point where ALL app errors are handled.
+/// Responsibilities:
+/// 1. Show accessible modal dialog
+/// 2. Play error message with TTS (automatically via TTSFactory)
+/// 3. Log error
+/// 4. Offer options (Retry, Close)
 class ErrorHandlerService {
   static final LoggerService _logger = LoggerService();
 
-  /// MÉTODO PRINCIPAL: Maneja CUALQUIER error
-  ///
-  /// Parameters:
-  /// - context: BuildContext para mostrar UI
-  /// - error: Exception/AppError/cualquier objeto
-  /// - service: Nombre del servicio donde ocurrió (para logs)
-  /// - canRetry: ¿Se puede reintentar? (muestra botón "Reintentar")
-  /// - onRetry: Callback si usuario presiona "Reintentar"
-  /// - onDismiss: Callback si usuario presiona "Cerrar" (sin reintentar)
+  /// Main error handler - processes any error and shows accessible dialog
   static Future<void> handleError({
     required BuildContext context,
     required dynamic error,
@@ -167,13 +143,7 @@ class ErrorHandlerService {
     );
   }
 
-  /// Diálogo ACCESIBLE para mostrar error
-  ///
-  /// Características:
-  /// - Modal (más visible para baja visión)
-  /// - Botones grandes (80dp mínimo)
-  /// - Texto grande (24sp mínimo)
-  /// - Semantics para TalkBack
+  /// Shows accessible error dialog with TalkBack support
   static Future<void> _showAccessibleErrorDialog({
     required BuildContext context,
     required String userMessage,

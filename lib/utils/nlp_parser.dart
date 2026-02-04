@@ -382,11 +382,26 @@ class NLPParser {
       );
     }
 
-    // Prioridad 10: WhatsApp
+    // Prioridad 10: WhatsApp (with contact extraction)
     if (_matchesAny(normalized, _whatsappKeywords)) {
+      // Try to extract contact name from the command
+      final contactName = _extractContactName(normalized);
+
       return VoiceCommand.now(
         type: CommandType.openWhatsApp,
         originalText: recognizedText,
+        parameters: contactName != null ? {'contact': contactName} : null,
+      );
+    }
+
+    // Prioridad 10b: Chat commands with contact name (without "whatsapp" keyword)
+    final chatContactName = _extractContactName(normalized);
+    if (chatContactName != null) {
+      debugPrint('💬 [NLPParser] Chat with contact: "$chatContactName"');
+      return VoiceCommand.now(
+        type: CommandType.openWhatsApp,
+        originalText: recognizedText,
+        parameters: {'contact': chatContactName},
       );
     }
 
@@ -414,6 +429,66 @@ class NLPParser {
   /// Usa coincidencia parcial (contains) para flexibilidad
   static bool _matchesAny(String text, List<String> keywords) {
     return keywords.any((keyword) => text.contains(keyword));
+  }
+
+  /// Extracts a contact name from chat-related commands
+  ///
+  /// Supported patterns:
+  /// - "chat de María" → "María"
+  /// - "hablar con Juan" → "Juan"
+  /// - "mensaje a Pedro" → "Pedro"
+  /// - "enviar mensaje a María" → "María"
+  /// - "abrir chat de la abuela" → "la abuela"
+  /// - "llamar a mamá por whatsapp" → "mamá"
+  ///
+  /// Returns the extracted contact name or null if not found
+  static String? _extractContactName(String text) {
+    // List of patterns that precede a contact name
+    // Order matters: longer/more specific patterns first
+    final patterns = [
+      'enviar mensaje a ',
+      'abrir chat de ',
+      'abrir chat con ',
+      'chat de ',
+      'chat con ',
+      'hablar con ',
+      'mensaje a ',
+      'mensaje para ',
+      'llamar a ',
+      'contactar a ',
+      'escribir a ',
+      'escribirle a ',
+    ];
+
+    for (final pattern in patterns) {
+      if (text.contains(pattern)) {
+        final startIndex = text.indexOf(pattern) + pattern.length;
+        var contactName = text.substring(startIndex).trim();
+
+        // Remove trailing common words that aren't part of the name
+        final trailingWords = [
+          ' por whatsapp',
+          ' en whatsapp',
+          ' por favor',
+          ' ahora',
+        ];
+
+        for (final trailing in trailingWords) {
+          if (contactName.endsWith(trailing)) {
+            contactName =
+                contactName.substring(0, contactName.length - trailing.length);
+          }
+        }
+
+        // Only return if we have a meaningful name (at least 2 chars)
+        if (contactName.length >= 2) {
+          debugPrint('📇 [NLPParser] Extracted contact: "$contactName" from pattern "$pattern"');
+          return contactName.trim();
+        }
+      }
+    }
+
+    return null;
   }
 
   /// Intenta extraer un porcentaje específico del texto

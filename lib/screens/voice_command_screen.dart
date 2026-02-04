@@ -72,14 +72,18 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
   Widget build(BuildContext context) {
     return Consumer<VoiceCommandProvider>(
       builder: (context, provider, child) {
-        // Configurar callback de navegacion (solo una vez)
+        // Configurar callbacks (solo una vez)
         if (!_callbackConfigured) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Navigation callback for voice commands
             provider.setNavigationCallback((screen) {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => screen),
               );
             });
+
+            // Error context for WhatsApp errors
+            provider.setErrorContext(context);
           });
           _callbackConfigured = true;
         }
@@ -322,6 +326,7 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
             title: 'WHATSAPP',
             commands: [
               ('Abrir WhatsApp', 'Abre la aplicación de mensajes'),
+              ('Chat de [nombre]', 'Abre chat de un contacto favorito'),
             ],
           ),
           const SizedBox(height: 16),

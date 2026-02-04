@@ -291,6 +291,8 @@ La app usa un **servicio central único** (`ErrorHandlerService`) para manejar T
 
 ### Uso Simple
 
+**IMPORTANTE:** ErrorHandlerService obtiene TTS automáticamente usando `TTSFactory.getInstance()`. **NO pasar `ttsService` como parámetro.**
+
 ```dart
 // EN CUALQUIER SERVICE, PROVIDER O SCREEN:
 try {
@@ -301,9 +303,8 @@ try {
       context: context,
       error: e,
       service: 'MiService',
-      canRetry: true,  // Mostrar botón "Reintentar"
-      onRetry: () => miServicio.hacerAlgo(),
-      ttsService: context.read<ElevenLabsService>(),
+      canRetry: true,  // Opcional: mostrar botón "Reintentar"
+      onRetry: () => miServicio.hacerAlgo(),  // Opcional: callback
     );
   }
 }
