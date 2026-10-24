@@ -275,6 +275,8 @@ class LLMParserService {
         return CommandType.requestHelp;
       case 'share_screen':
         return CommandType.shareScreen;
+      case 'open_image_reader':
+        return CommandType.openImageReader;
 
       // WhatsApp
       case 'open_chat':

@@ -7,6 +7,41 @@ y este proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [1.3.0] - 2026-10-25
+
+### 📷 Funcionalidad 6.4: Lector de Fotos de la Galería (Fase 1) 🧪
+
+#### Agregado
+- **ImageReaderScreen** - Fotos de la galería a pantalla completa
+  - Navegación deslizando o con botones grandes Anterior / Siguiente (88dp, 24sp)
+  - Panel de descripción con tipo de imagen (chat, foto, resultados médicos, documento)
+  - Botón central contextual: Leer foto / Leyendo / Detener / Repetir / Reintentar
+  - Ocultar texto para ver la foto completa
+- **ImageReaderProvider** - Lectura automática tras 2 s en una foto (`IMAGE_READER_DWELL_MS`)
+  - Caché de descripciones en memoria (volver a una foto no tiene coste)
+  - Cancela la lectura al cambiar de foto; ignora respuestas tardías
+  - Sin reintentos automáticos; pausa la lectura tras un error de configuración
+  - Paginación de la galería (50 fotos por página)
+- **VisionService** - Abstracción de IA de visión (patrón factory, igual que TTS)
+  - `AnthropicVisionService` (default, Claude Haiku 5.5, reutiliza `claudeApiKey`)
+  - `OpenAICompatibleVisionService` (OpenAI, DeepSeek, Gemini, Ollama) vía `--dart-define`
+- **GalleryService** - Permisos y carga de fotos con `photo_manager`
+- **Comando de voz** `openImageReader`: "leer mis fotos", "ver fotos", "abre la galería"...
+- Botón **"Leer mis fotos"** en la pantalla principal
+- Permisos Android `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `READ_EXTERNAL_STORAGE` (≤32)
+- Códigos de error `VISION_*` y `GALLERY_*` con mensajes accesibles
+- `vision.env.example.json` para configurar proveedores alternativos
+
+#### Dependencias
+- `photo_manager: ^3.12.0`
+- `fake_async: ^1.3.1` (dev)
+
+#### Documentación
+- `.claude/docs/FUNCIONALIDAD_6.4_LECTOR_FOTOS.md` (setup, proveedores, costes, privacidad, fase 2)
+- `.claude/docs/manual-test-cases/FUNCIONALIDAD_6.4_LECTOR_FOTOS.md` (22 casos)
+
+---
+
 ## [1.2.0] - 2026-01-24
 
 ### 🤖 Feature 4.4: LLM Remote Enhancement ✅

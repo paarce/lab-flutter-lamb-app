@@ -894,6 +894,47 @@ Para encontrar cosas como mis llaves, medicamentos o control remoto
 
 ---
 
+### FUNCIONALIDAD 6.4: Lector de Fotos de la Galería 🧪
+
+**Documentación:** [FUNCIONALIDAD_6.4_LECTOR_FOTOS.md](./FUNCIONALIDAD_6.4_LECTOR_FOTOS.md)
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero que la app me lea en voz alta las fotos de mi galería
+(capturas de chats, fotos, resultados de análisis e informes médicos)
+Para entender lo que me envían sin tener que ver la pantalla
+```
+
+#### Criterios de Aceptación Funcional (Fase 1)
+- [x] Acceso desde la pantalla principal (botón "Leer mis fotos") y por voz ("leer mis fotos")
+- [x] Pide permiso de fotos y explica cómo activarlo si se deniega
+- [x] Fotos a pantalla completa, navegación deslizando o con botones Anterior/Siguiente
+- [x] Tras 2 s en una foto (configurable) la IA la interpreta y se lee con TTS
+- [x] Identifica el tipo: captura de chat, foto, resultados médicos, documento
+- [x] Resultados médicos: lee cada valor y señala los que están fuera de rango (sin diagnosticar)
+- [x] Feedback audible mientras procesa: "Leyendo la foto, un momento"
+- [x] Botón Repetir / Detener / Reintentar
+
+#### Criterios de Aceptación Técnico
+- [x] `VisionService` abstracto + `VisionServiceFactory` (Claude por defecto, OpenAI-compatible configurable)
+- [x] Imagen reescalada a ~1568px JPEG antes de enviar (reducir costos)
+- [x] Caché de descripciones en memoria (sin coste al volver a una foto)
+- [x] Errores vía `ErrorHandlerService`, sin reintentos automáticos
+- [x] Tests unitarios y de widget
+
+#### Fase 2 (pendiente)
+- [ ] Preguntar por voz sobre la foto actual ("¿cuánto sale el colesterol?")
+- [ ] Zoom con pellizco
+- [ ] Actualizar declaración de privacidad para Google Play
+
+#### Estatus 6.4
+- [ ] Por hacer
+- [x] Implementación (Fase 1)
+- [ ] Testing manual con TalkBack
+
+
+
 ### FUNCIONALIDAD 7: Gestión de Permisos
 
 #### Historia de Usuario

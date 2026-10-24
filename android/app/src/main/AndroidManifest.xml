@@ -21,6 +21,16 @@
     <!-- Wake lock para mantener pantalla activa durante sesión remota -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Lector de fotos (Feature 6.4): lectura de la galería -->
+    <!-- Android 13+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Android 14+ acceso parcial ("solo fotos seleccionadas"), activo con targetSdk 34+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <!-- Android 12 o menor -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <!-- Características de hardware opcionales (no requeridas) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />

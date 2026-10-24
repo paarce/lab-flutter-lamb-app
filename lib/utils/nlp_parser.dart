@@ -36,6 +36,25 @@ class NLPParser {
     'whats',
   ];
 
+  static const _imageReaderKeywords = [
+    'leer fotos',
+    'leer mis fotos',
+    'lee mis fotos',
+    'leer foto',
+    'ver fotos',
+    'ver mis fotos',
+    'mis fotos',
+    'abrir fotos',
+    'abre fotos',
+    'abrir galería',
+    'abre galería',
+    'galería',
+    'galeria',
+    'leer imagen',
+    'leer imágenes',
+    'ver imágenes',
+  ];
+
   static const _contrastKeywords = [
     'contraste',
     'alto contraste',
@@ -382,7 +401,16 @@ class NLPParser {
       );
     }
 
-    // Prioridad 10: WhatsApp
+    // Prioridad 10: Lector de fotos (antes de WhatsApp para que
+    // "ver fotos de whatsapp" abra la galería)
+    if (_matchesAny(normalized, _imageReaderKeywords)) {
+      return VoiceCommand.now(
+        type: CommandType.openImageReader,
+        originalText: recognizedText,
+      );
+    }
+
+    // Prioridad 10b: WhatsApp
     if (_matchesAny(normalized, _whatsappKeywords)) {
       return VoiceCommand.now(
         type: CommandType.openWhatsApp,
