@@ -23,6 +23,7 @@ COMANDOS DISPONIBLES:
 Asistencia y Control Remoto:
 - request_help: Solicitar ayuda genérica (muestra tutorial/lista de comandos)
 - share_screen: Compartir pantalla / control remoto para recibir ayuda visual de otra persona
+- open_image_reader: Ver o leer en voz alta las fotos de la galería (capturas, documentos, análisis)
 
 WhatsApp:
 - open_chat: Abrir chat de WhatsApp de un contacto (requiere param "contact" con el nombre)
@@ -100,6 +101,8 @@ Asistencia:
 - "necesito que alguien me ayude" → {"type": "request_help", "params": null}
 - "compartir mi pantalla" → {"type": "share_screen", "params": null}
 - "enseñar pantalla" → {"type": "share_screen", "params": null}
+- "quiero que me leas las fotos" → {"type": "open_image_reader", "params": null}
+- "qué dice la captura que me mandaron" → {"type": "open_image_reader", "params": null}
 
 WhatsApp:
 - "quiero hablar con mi hija maría" → {"type": "open_chat", "params": {"contact": "maría"}}

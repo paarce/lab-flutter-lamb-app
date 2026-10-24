@@ -89,11 +89,17 @@ lib/
 │   └── error_codes.dart                  ✅ Códigos de error normalizados
 ├── screens/
 │   ├── home_screen.dart                  ✅ Implementado
+│   ├── image_reader_screen.dart          ✅ Lector de fotos (Feature 6.4)
 │   ├── voice_command_screen.dart         🔜 Próxima funcionalidad
 │   ├── whatsapp_screen.dart              🔜 Próxima funcionalidad
 │   └── remote_control_screen.dart        🔜 Próxima funcionalidad
 ├── services/
 │   ├── elevenlabs_service.dart           ✅ STT (Speech-to-Text)
+│   ├── gallery_service.dart              ✅ Galería de fotos (photo_manager)
+│   ├── vision/                           ✅ IA DE VISIÓN (Feature 6.4)
+│   │   ├── vision_service.dart           ✅ Interfaz abstracta + errores
+│   │   ├── vision_service_factory.dart   ✅ Factory según config
+│   │   └── implementations/              ✅ Anthropic (default) + OpenAI-compatible
 │   ├── tts/                              ✅ ABSTRACCIÓN ESCALABLE DE TTS
 │   │   ├── tts_service.dart              ✅ Interfaz abstracta
 │   │   ├── tts_config.dart               ✅ Configuración global
@@ -112,6 +118,7 @@ lib/
 ├── providers/
 │   ├── remote_control_provider.dart      ✅ State management control remoto
 │   ├── remote_viewer_provider.dart       ✅ State management viewer
+│   ├── image_reader_provider.dart        ✅ Lector de fotos (dwell + caché)
 │   ├── voice_command_provider.dart       🔜 State management comandos
 │   └── whatsapp_provider.dart            🔜 State management WhatsApp
 ├── models/
@@ -155,6 +162,7 @@ android/app/src/main/kotlin/
 
 - **BACKLOG.md** - Tareas pendientes del proyecto
 - **ROADMAP.md** - Hoja de ruta del desarrollo
+- **FUNCIONALIDAD_6.4_LECTOR_FOTOS.md** - Lector de fotos con IA: setup de proveedores, costes y privacidad
 - **SETUP_COMPLETADO.md** - Confirmación de setup inicial (gitignored, solo local)
 
 ### Reglas de Desarrollo (.claude/rules/)

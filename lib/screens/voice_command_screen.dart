@@ -11,6 +11,7 @@ import '../services/tts/tts_factory.dart';
 import '../services/tts/tts_service.dart';
 import '../widgets/accessible_button.dart';
 import '../widgets/base_screen_layout.dart';
+import 'image_reader_screen.dart';
 import 'remote_control_host_screen.dart';
 
 /// Pantalla de comandos de voz con reconocimiento en tiempo real
@@ -93,6 +94,23 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
         return BaseScreenLayout(
           title: 'Comandos de Voz',
           content: [
+            // 0. Acceso directo al lector de fotos (Feature 6.4)
+            AccessibleButton(
+              label: 'Leer mis fotos',
+              icon: Icons.photo_library,
+              semanticHint:
+                  'Toca dos veces para ver tus fotos y escuchar lo que contienen',
+              onPressed: isBusy
+                  ? null
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ImageReaderScreen(),
+                        ),
+                      ),
+            ),
+
+            const SizedBox(height: 24),
+
             // 1. Transcripción en vivo (si existe)
             if (provider.currentTranscript.isNotEmpty)
               _buildTranscript(provider.currentTranscript),
@@ -312,6 +330,7 @@ class _VoiceCommandScreenState extends State<VoiceCommandScreen> {
             commands: [
               ('Compartir pantalla', 'Ayuda remota de un familiar'),
               ('Tutorial', 'Guía de uso de la app'),
+              ('Leer mis fotos', 'Te leo las fotos de tu galería'),
             ],
           ),
           const SizedBox(height: 16),

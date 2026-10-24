@@ -40,6 +40,15 @@ abstract class ErrorCodes {
   static const String llmTimeout = 'LLM_TIMEOUT';
   static const String llmParseError = 'LLM_PARSE_ERROR';
 
+  // VISIÓN / LECTOR DE IMÁGENES (Feature 6.4)
+  static const String visionApiKeyMissing = 'VISION_API_KEY_MISSING';
+  static const String visionRequestFailed = 'VISION_REQUEST_FAILED';
+  static const String visionEmptyResponse = 'VISION_EMPTY_RESPONSE';
+
+  // GALERÍA (Feature 6.4)
+  static const String galleryPermissionDenied = 'GALLERY_PERMISSION_DENIED';
+  static const String galleryLoadFailed = 'GALLERY_LOAD_FAILED';
+
   // UNKNOWN
   static const String unknownError = 'UNKNOWN_ERROR';
 }

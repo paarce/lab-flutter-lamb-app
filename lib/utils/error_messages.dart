@@ -46,6 +46,11 @@ class ErrorMessages {
         return 'Error del sistema. Cierra y abre la app de nuevo.';
       case ErrorCodes.pcMethodNotImplemented:
         return 'Esta función no está disponible en tu dispositivo.';
+      case ErrorCodes.galleryPermissionDenied:
+        return 'Necesito permiso para ver tus fotos. '
+            'Ve a Configuración y actívalo.';
+      case ErrorCodes.galleryLoadFailed:
+        return 'No pude abrir tus fotos. Intenta de nuevo.';
       default:
         return 'Error del sistema. Intenta de nuevo.';
     }
@@ -124,6 +129,13 @@ class ErrorMessages {
         return 'El asistente tardó demasiado. Intenta de nuevo.';
       case ErrorCodes.llmParseError:
         return 'No entendí el comando. Intenta de nuevo con otras palabras.';
+      case ErrorCodes.visionApiKeyMissing:
+        return 'El lector de fotos no está configurado. '
+            'Pide ayuda a un familiar.';
+      case ErrorCodes.visionRequestFailed:
+        return 'No pude leer esta foto. Intenta de nuevo en unos momentos.';
+      case ErrorCodes.visionEmptyResponse:
+        return 'No encontré nada que leer en esta foto.';
       default:
         return 'Error del asistente de voz. Intenta de nuevo.';
     }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../models/command.dart';
+import '../screens/image_reader_screen.dart';
 import '../screens/remote_control_host_screen.dart';
 import '../services/elevenlabs_service.dart';
 import '../services/llm_parser_service.dart';
@@ -319,6 +320,25 @@ class VoiceCommandProvider extends ChangeNotifier {
           _navigationCallback!(const RemoteControlHostScreen());
           developer.log(
             'Navigating to RemoteControlHostScreen for screen sharing',
+            name: 'VoiceCommandProvider',
+          );
+        } else {
+          developer.log(
+            'Navigation callback not set',
+            name: 'VoiceCommandProvider',
+          );
+        }
+        _resetUnknownCounter();
+        break;
+
+      case CommandType.openImageReader:
+        await _ttsService.speak(
+          'Abriendo tus fotos. Quédate en una foto y te la leeré.',
+        );
+        if (_navigationCallback != null) {
+          _navigationCallback!(const ImageReaderScreen());
+          developer.log(
+            'Navigating to ImageReaderScreen',
             name: 'VoiceCommandProvider',
           );
         } else {
@@ -711,6 +731,8 @@ Comandos de asistencia:
 Compartir pantalla: Permite que un familiar vea tu pantalla y te ayude de forma remota.
 
 Tutorial: Escucha una guía completa de uso de la aplicación.
+
+Leer mis fotos: Te leo en voz alta las fotos de tu galería, como capturas de chats, documentos o resultados de análisis.
 ''';
 
     await _ttsService.speak(text);

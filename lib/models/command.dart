@@ -9,6 +9,9 @@ enum CommandType {
   /// "abrir WhatsApp" → Abre WhatsApp
   openWhatsApp,
 
+  /// "leer mis fotos" → Abre el lector de imágenes de la galería
+  openImageReader,
+
   /// "alto contraste" → Cambia tema
   toggleContrast,
 

@@ -32,6 +32,23 @@ void main() {
       });
     });
 
+    group('openImageReader command', () {
+      for (final phrase in [
+        'leer mis fotos',
+        'Lee mis fotos por favor',
+        'quiero ver fotos',
+        'abre la galería',
+        'abrir galeria',
+        'leer imagen',
+        'ver fotos de whatsapp',
+      ]) {
+        test('recognizes "$phrase"', () {
+          final command = NLPParser.parse(phrase);
+          expect(command.type, CommandType.openImageReader);
+        });
+      }
+    });
+
     group('openWhatsApp command', () {
       test('recognizes "abrir whatsapp"', () {
         final command = NLPParser.parse('abrir whatsapp');

@@ -90,6 +90,8 @@ ios/GoogleService-Info.plist
 
 # Secrets and API Keys
 lib/config/secrets.dart
+# Configuración del proveedor de visión (Feature 6.4) - contiene API keys
+vision.env.json
 .env
 .env.*
 !.env.example
