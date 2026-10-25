@@ -21,11 +21,19 @@ class AnthropicVisionService implements VisionService {
   final String _apiKey;
   final String _model;
 
+  /// Prompts inyectables: el cliente no depende del feature que lo usa
+  final String _systemPrompt;
+  final String _userInstruction;
+
   AnthropicVisionService({
     required String apiKey,
     String? model,
+    String systemPrompt = ImageReaderPrompt.system,
+    String userInstruction = ImageReaderPrompt.userInstruction,
     http.Client? httpClient,
   })  : _apiKey = apiKey,
+        _systemPrompt = systemPrompt,
+        _userInstruction = userInstruction,
         _model = (model == null || model.isEmpty)
             ? ImageReaderConfig.defaultAnthropicModel
             : model,
@@ -57,7 +65,7 @@ class AnthropicVisionService implements VisionService {
             body: jsonEncode({
               'model': _model,
               'max_tokens': ImageReaderConfig.maxOutputTokens,
-              'system': ImageReaderPrompt.system,
+              'system': _systemPrompt,
               'messages': [
                 {
                   'role': 'user',
@@ -72,7 +80,7 @@ class AnthropicVisionService implements VisionService {
                     },
                     {
                       'type': 'text',
-                      'text': ImageReaderPrompt.userInstruction,
+                      'text': _userInstruction,
                     },
                   ],
                 },

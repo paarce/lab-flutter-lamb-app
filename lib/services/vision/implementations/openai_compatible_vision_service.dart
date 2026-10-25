@@ -27,12 +27,20 @@ class OpenAICompatibleVisionService implements VisionService {
   /// Ollama y otros servidores locales no requieren API key
   final bool _requiresApiKey;
 
+  /// Prompts inyectables: el cliente no depende del feature que lo usa
+  final String _systemPrompt;
+  final String _userInstruction;
+
   OpenAICompatibleVisionService({
     required String baseUrl,
     required String model,
     String apiKey = '',
+    String systemPrompt = ImageReaderPrompt.system,
+    String userInstruction = ImageReaderPrompt.userInstruction,
     http.Client? httpClient,
-  })  : _baseUrl = baseUrl.endsWith('/')
+  })  : _systemPrompt = systemPrompt,
+        _userInstruction = userInstruction,
+        _baseUrl = baseUrl.endsWith('/')
             ? baseUrl.substring(0, baseUrl.length - 1)
             : baseUrl,
         _apiKey = apiKey,
@@ -68,14 +76,14 @@ class OpenAICompatibleVisionService implements VisionService {
               'messages': [
                 {
                   'role': 'system',
-                  'content': ImageReaderPrompt.system,
+                  'content': _systemPrompt,
                 },
                 {
                   'role': 'user',
                   'content': [
                     {
                       'type': 'text',
-                      'text': ImageReaderPrompt.userInstruction,
+                      'text': _userInstruction,
                     },
                     {
                       'type': 'image_url',

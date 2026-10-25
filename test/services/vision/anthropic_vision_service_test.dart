@@ -64,6 +64,25 @@ void main() {
       expect(body['model'], 'claude-custom');
     });
 
+    test('accepts custom prompts (reusable for other image features)',
+        () async {
+      late Map<String, dynamic> body;
+      final service = AnthropicVisionService(
+        apiKey: 'sk-test',
+        systemPrompt: 'Lee la pantalla actual.',
+        userInstruction: '¿Qué hay en pantalla?',
+        httpClient: MockClient((request) async {
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return claudeResponse('{"kind": "other", "text": "Una pantalla."}');
+        }),
+      );
+
+      await service.describeImage(imageBytes);
+
+      expect(body['system'], 'Lee la pantalla actual.');
+      expect(body['messages'][0]['content'][1]['text'], '¿Qué hay en pantalla?');
+    });
+
     test('parses the description from the response', () async {
       final service = AnthropicVisionService(
         apiKey: 'sk-test',

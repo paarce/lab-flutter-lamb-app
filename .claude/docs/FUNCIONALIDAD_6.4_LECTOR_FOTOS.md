@@ -217,6 +217,10 @@ Diseño propuesto, compatible con lo implementado:
 4. **Provider:** guardar historial por foto (`Map<String, List<ImageChatTurn>>`) junto a la caché actual.
 5. **Coste:** usar prompt caching de Anthropic para la imagen repetida en preguntas sucesivas.
 
+**Evolución:** leer cualquier pantalla del móvil, no solo la galería, con un disparador desde otras apps. Ver la spec en el BACKLOG (Funcionalidad 6.5).
+
+**Deuda técnica:** el cliente de Claude está duplicado con `LLMParserService`. La unificación está planificada en [ADR-001](./adr/ADR-001-capa-ia-unificada.md).
+
 Otras mejoras candidatas: zoom con pellizco (`InteractiveViewer`), filtrar solo capturas de pantalla (álbum *Screenshots*), compartir la descripción por WhatsApp con un familiar.
 
 ---

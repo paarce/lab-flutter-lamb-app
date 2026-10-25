@@ -933,6 +933,64 @@ Para entender lo que me envían sin tener que ver la pantalla
 - [x] Implementación (Fase 1)
 - [ ] Testing manual con TalkBack
 
+---
+
+### FUNCIONALIDAD 6.5: Leer Cualquier Pantalla (fuera de la app) 🔮
+
+**Prioridad:** Post-MVP. Evolución de la 6.4.
+**Depende de:** [ADR-001](./adr/ADR-001-capa-ia-unificada.md) (capa de IA unificada), Funcionalidad 8 (AccessibilityService)
+
+#### Historia de Usuario
+```
+Como adulto mayor con baja visión
+Quiero que, esté en la app que esté (WhatsApp, el banco, el correo, la web del médico),
+con un gesto o botón la app me lea lo que hay en pantalla
+Para no tener que hacer una captura, abrir la galería y buscarla
+```
+
+#### Flujo propuesto
+1. El usuario está en otra app (por ejemplo, un PDF de resultados en el correo).
+2. Activa un **disparador** (ver opciones abajo).
+3. La app **captura la pantalla** sin guardarla en la galería.
+4. Se reutiliza la lógica de la 6.4: `VisionService.describeImage(bytes)` + TTS, con un prompt adaptado ("lee la pantalla actual").
+5. El usuario sigue en la otra app mientras escucha la lectura.
+
+#### Opciones técnicas de captura
+
+| Opción | Android | Pros | Contras |
+|---|---|---|---|
+| `AccessibilityService.takeScreenshot()` | 11+ (API 30) | Sin diálogo de consentimiento cada vez. El AccessibilityService ya está planificado (Funcionalidad 8). | No llega a Android 7-10 (minSdk 24). Requiere `canTakeScreenshot="true"` y declaración en Google Play. |
+| `MediaProjection` | 5+ | Ya se usa en el control remoto (WebRTC). Cubre todas las versiones. | Diálogo de consentimiento del sistema en cada sesión (más estricto desde Android 14). Requiere foreground service. |
+
+**Recomendación inicial:** `takeScreenshot()` del AccessibilityService en Android 11+, y `MediaProjection` como alternativa para versiones antiguas.
+
+#### Opciones de disparador
+
+| Disparador | Notas |
+|---|---|
+| **Botón de accesibilidad** del sistema (barra de navegación / gesto) | El más natural para el público objetivo y compatible con TalkBack. Viene con el AccessibilityService. |
+| **Burbuja flotante** | Muy visible. Requiere el permiso `SYSTEM_ALERT_WINDOW` ("mostrar sobre otras apps"), que es un paso extra de configuración. |
+| **Mosaico de Ajustes rápidos** (`TileService`) | Accesible desde la cortina de notificaciones. |
+| **Acción en notificación persistente** | Simple, pero ocupa una notificación fija. |
+| Comando de voz siempre activo | ❌ Fuera de alcance: requiere escucha continua (batería y privacidad). |
+
+#### Decisiones abiertas
+- **¿Quién habla?** El TTS está en Flutter. Opciones: (a) mantener un `FlutterEngine` en segundo plano desde el servicio nativo, o (b) leer con el TTS nativo de Android desde Kotlin. La (b) es más simple y no saca al usuario de la otra app.
+- **¿Dónde se llama a la IA?** Desde Dart, que reutiliza la capa de IA, o desde Kotlin, que duplica el cliente. Preferible Dart, con un engine en segundo plano.
+- **Apps protegidas:** las apps con `FLAG_SECURE` (bancos, algunas de salud) devuelven una captura negra. Hay que detectarlo y decir "Esta app no permite leer su pantalla".
+- **Privacidad:** la pantalla puede contener datos sensibles de terceros. Hay que mostrar un aviso claro y obtener consentimiento explícito la primera vez, y declararlo en Google Play.
+
+#### Qué se reutiliza de la 6.4
+- ✅ `VisionService` (recibe bytes, no depende del origen) y sus implementaciones con prompt inyectable
+- ✅ `ImageDescription` / `ImageKind` (chat, documento, resultados médicos...)
+- ✅ Mapeo de errores y mensajes accesibles
+- ⚠️ `ImageReaderProvider` es específico de la galería. Para la 6.5 conviene extraer un "pipeline de lectura" (bytes → IA → TTS) reutilizable por ambas.
+
+#### Estatus 6.5
+- [x] Idea / spec inicial
+- [ ] Spike técnico: `takeScreenshot()` + botón de accesibilidad
+- [ ] Implementación
+
 
 
 ### FUNCIONALIDAD 7: Gestión de Permisos

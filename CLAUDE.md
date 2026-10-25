@@ -163,6 +163,7 @@ android/app/src/main/kotlin/
 - **BACKLOG.md** - Tareas pendientes del proyecto
 - **ROADMAP.md** - Hoja de ruta del desarrollo
 - **FUNCIONALIDAD_6.4_LECTOR_FOTOS.md** - Lector de fotos con IA: setup de proveedores, costes y privacidad
+- **adr/** - Decisiones de arquitectura (ADR-001: unificar la capa de IA)
 - **SETUP_COMPLETADO.md** - Confirmación de setup inicial (gitignored, solo local)
 
 ### Reglas de Desarrollo (.claude/rules/)

@@ -16,11 +16,17 @@ import '../../models/image_description.dart';
 /// Implementaciones:
 /// - `AnthropicVisionService` (default, Claude)
 /// - `OpenAICompatibleVisionService` (OpenAI, DeepSeek, Gemini, Ollama...)
+///
+/// Deuda técnica: duplica el cliente HTTP de `LLMParserService`. Ver
+/// `.claude/docs/adr/ADR-001-capa-ia-unificada.md`.
 abstract class VisionService {
   /// Nombre del proveedor (para logs)
   String get providerName;
 
   /// Interpreta una imagen JPEG y devuelve un texto listo para TTS.
+  ///
+  /// Recibe bytes, no una foto de la galería: cualquier origen de imagen
+  /// (galería, cámara, captura de pantalla) puede reutilizar este servicio.
   ///
   /// Lanza [AppError] (categoría `llm`) si:
   /// - Falta la API key (`VISION_API_KEY_MISSING`, no reintentable)
